@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Globalization;
 
 namespace UnityCli.Support;
 
@@ -8,6 +9,7 @@ public static class JsonHelpers
     public static readonly JsonSerializerOptions SerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
         WriteIndented = true,
     };
 
@@ -42,12 +44,27 @@ public static class JsonHelpers
             return JsonValue.Create(boolValue);
         }
 
-        if (long.TryParse(value, out var longValue))
+        if (value.Contains(',') && !value.Contains('{') && !value.Contains('['))
+        {
+            var segments = value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length > 1 && segments.All(static x => double.TryParse(x, NumberStyles.Float, CultureInfo.InvariantCulture, out _)))
+            {
+                var array = new JsonArray();
+                foreach (var segment in segments)
+                {
+                    array.Add(JsonValue.Create(double.Parse(segment, NumberStyles.Float, CultureInfo.InvariantCulture)));
+                }
+
+                return array;
+            }
+        }
+
+        if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longValue))
         {
             return JsonValue.Create(longValue);
         }
 
-        if (double.TryParse(value, out var doubleValue))
+        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue))
         {
             return JsonValue.Create(doubleValue);
         }

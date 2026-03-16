@@ -1,0 +1,1027 @@
+Unity Editor version:    6000.3.11f1 (3000ef702840)
+Branch:                  6000.3/staging
+Build type:              Release
+Batch mode:              NO
+macOS version:           Version 26.3.1 (Build 25D2128)
+Darwin version:          25.3.0
+Architecture:            arm64
+Running under Rosetta:   NO
+Available memory:        16384 MB
+Date:                    2026-03-16T23:29:17Z
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-geuneda" at "2026-03-16T23:29:17.911496Z"
+Launching external process: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/PackageManager/Server/UnityPackageManager
+
+COMMAND LINE ARGUMENTS:
+/Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/MacOS/Unity
+-projectPath
+/Users/geuneda/Documents/GitHub/unity-cli/manual-test-project
+-logFile
+/Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Logs/unity-editor.log
+Successfully changed project path to: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project
+/Users/geuneda/Documents/GitHub/unity-cli/manual-test-project
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Player connection [8594682112]  Target information:
+
+Player connection [8594682112]  * "[IP] 192.168.13.127 [Port] 55504 [Flags] 2 [Guid] 846753935 [EditorId] 846753935 [Version] 1048832 [Id] OSXEditor(0,ijong-geun-ui-Macmini.local) [Debug] 1 [PackageName] OSXEditor [ProjectName] Editor" 
+
+Player connection [8594682112]  * "[IP] 100.80.142.79 [Port] 55504 [Flags] 2 [Guid] 846753935 [EditorId] 846753935 [Version] 1048832 [Id] OSXEditor(0,ijong-geun-ui-Macmini.local) [Debug] 1 [PackageName] OSXEditor [ProjectName] Editor" 
+
+Player connection [8594682112] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [8594682112] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Package Manager] Connected to IPC stream "Upm-17294" after 0.1 seconds.
+[Licensing::Module] Licensing is not yet initialized.
+[Licensing::Client] Error: HandshakeResponse reported an error:
+	ResponseCode: 505
+	ResponseStatus: Unsupported protocol version '1.18.0'.
+[Licensing::Module] Error: Failed to handshake to channel: "LicenseClient-geuneda"
+[Licensing::IpcConnector] LicenseClient-geuneda channel disconnected successfully.
+[Licensing::IpcConnector] Channel LicenseClient-geuneda-6000.3.11 doesn't exist
+Launching external process: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Helpers/UnityLicensingClient.app/Contents/MacOS/Unity.Licensing.Client
+[Licensing::Module] Successfully launched the LicensingClient (PId: 17296)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-geuneda-6000.3.11" at "2026-03-16T23:29:18.458767Z"
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.18.0+23225a6
+  Session Id:              a364a915d4ac42faabf89e05b0ed8f14
+  Correlation Id:          bb524609b3536875d11cb7d259411788
+  External correlation Id: 6596777691856507053
+  Machine Id:              XoS/B1a8XzTClbh65/yTMzcU8ow=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-geuneda-6000.3.11" (connect: 0.25s, validation: 0.01s, handshake: 0.01s)
+[Licensing::IpcConnector] Channel LicenseClient-geuneda-6000.3.11-notifications doesn't exist
+[Licensing::Module] Connected to LicensingClient (PId: 17296, launch time: 0.00, total connection time: 0.28s)
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] License group:
+  Id: 14569470072418-UnityPersXXXX
+  Product: Unity Personal
+  Type: Assigned
+  Expiration: Unlimited
+[Licensing::Client] Successfully updated license, isAsync: True, time: 0.00
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Licensing Background thread has ended after 0.58s
+[Licensing::Module] Licensing is initialized (took 0.30s).
+[Licensing::Client] Successfully resolved entitlement details
+Library Redirect Path: Library/
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 6000.3.11f1 (3000ef702840)
+[Subsystems] Discovering subsystems at path /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Assets
+GfxDevice: creating device client; kGfxThreadingModeThreaded
+ preferred device: Apple M4 (high power)
+Metal devices available: 1
+0: Apple M4 (high power)
+Using device Apple M4 (high power)
+Initializing Metal device caps: Apple M4
+Mac GPU Family: 2
+Apple GPU Family: 9
+MSL Version: 3.0
+Has Float MSAA: 1
+Has Float Filtering: 1
+ReadWrite Texture Tier: 2
+Initialize mono
+Mono path[0] = '/Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/Scripting/Managed'
+Mono path[1] = '/Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/lib/mono/unityjit-macos'
+Mono config path = '/Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56294
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/PlaybackEngines/MacStandaloneSupport/UnityEditor.OSXStandalone.Extensions.dll
+[Licensing::Client] Successfully resolved entitlement details
+Register platform support module: /Applications/Unity/Hub/Editor/6000.3.11f1/PlaybackEngines/AndroidPlayer/UnityEditor.Android.Extensions.dll
+[Licensing::Client] Successfully resolved entitlement details
+Register platform support module: /Applications/Unity/Hub/Editor/6000.3.11f1/PlaybackEngines/iOSSupport/UnityEditor.iOS.Extensions.dll
+Registered in 0.001835 seconds.
+- Loaded All Assemblies, in  0.169 seconds
+[usbmuxd] Start listen thread
+[usbmuxd] Listen thread started
+[usbmuxd] Send listen message
+Native extension for iOS target not found
+Native extension for Android target not found
+Native extension for OSXStandalone target not found
+Package Manager log level set to [2]
+ScheduleIndexationOnStartup MainProcess:False IndexOnStartup:False
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.219 seconds
+Domain Reload Profiling: 389ms
+	BeginReloadAssembly (46ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (11ms)
+	RebuildCommonClasses (16ms)
+	RebuildNativeTypeToScriptingClass (6ms)
+	initialDomainReloadingComplete (20ms)
+	LoadAllAssembliesAndSetupDomain (81ms)
+		LoadAssemblies (35ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (80ms)
+			TypeCache.Refresh (79ms)
+				TypeCache.ScanAssembly (72ms)
+			BuildScriptInfoCaches (0ms)
+			ResolveRequiredComponents (0ms)
+	FinalizeReload (220ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (194ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (75ms)
+			SetLoadedEditorAssemblies (2ms)
+			BeforeProcessingInitializeOnLoad (35ms)
+			ProcessInitializeOnLoadAttributes (50ms)
+			ProcessInitializeOnLoadMethodAttributes (32ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 39 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.nuget.newtonsoft-json@3.2.2 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64)
+  Built-in packages:
+    com.unity.multiplayer.center@1.0.1 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.multiplayer.center@f01f4ba8d00a)
+    com.unity.modules.accessibility@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.accessibility)
+    com.unity.modules.adaptiveperformance@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.adaptiveperformance)
+    com.unity.modules.ai@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.ai)
+    com.unity.modules.androidjni@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.androidjni)
+    com.unity.modules.animation@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.assetbundle)
+    com.unity.modules.audio@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.audio)
+    com.unity.modules.cloth@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.cloth)
+    com.unity.modules.director@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.director)
+    com.unity.modules.imageconversion@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.imageconversion)
+    com.unity.modules.imgui@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.imgui)
+    com.unity.modules.jsonserialize@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.jsonserialize)
+    com.unity.modules.particlesystem@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.particlesystem)
+    com.unity.modules.physics@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.physics2d)
+    com.unity.modules.screencapture@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.screencapture)
+    com.unity.modules.terrain@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.terrain)
+    com.unity.modules.terrainphysics@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.terrainphysics)
+    com.unity.modules.tilemap@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.tilemap)
+    com.unity.modules.ui@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.ui)
+    com.unity.modules.uielements@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.uielements)
+    com.unity.modules.umbra@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.umbra)
+    com.unity.modules.unityanalytics@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.unityanalytics)
+    com.unity.modules.unitywebrequest@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.unitywebrequestwww@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.unitywebrequestwww)
+    com.unity.modules.vectorgraphics@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.vectorgraphics)
+    com.unity.modules.vehicles@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.vehicles)
+    com.unity.modules.video@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.video)
+    com.unity.modules.vr@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.vr)
+    com.unity.modules.wind@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.wind)
+    com.unity.modules.xr@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.xr)
+    com.unity.modules.subsystems@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.subsystems)
+    com.unity.modules.hierarchycore@1.0.0 (location: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.hierarchycore)
+  Local packages:
+    com.geuneda.unity-cli-connector@file:/Users/geuneda/Documents/GitHub/unity-cli/unity-connector (location: /Users/geuneda/Documents/GitHub/unity-cli/unity-connector)
+[Subsystems] No new subsystems found in resolved package list.
+[Package Manager] Done registering packages in 0.01 seconds
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://unix:/tmp/ilpp.sock-f7f865c6c5b87a949fdf20475862fd26
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Content root path: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc - - 200 - application/grpc 17.7415ms
+Starting: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/BuildPipeline/bee_backend --ipc --defer-dag-verification --dagfile="Library/Bee/200b0aE.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project
+Starting: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/Scripting/netcorerun/netcorerun "/Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/BuildPipeline/ScriptCompilationBuildProgram.exe" "Library/Bee/200b0aE.dag.json" "Library/Bee/200b0aE-inputdata.json" "Library/Bee/buildprogram0.traceevents"
+WorkingDir: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project
+ExitCode: 4 Duration: 0s33ms
+Rebuilding DAG because FileSignature timestamp changed: Library/Bee/200b0aE-inputdata.json
+*** Tundra requires additional run (0.02 seconds), 0 items updated, 172 evaluated
+ExitCode: 0 Duration: 0s262ms
+Starting: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/BuildPipeline/bee_backend --ipc --defer-dag-verification --dagfile="Library/Bee/200b0aE.dag" --continue-on-failure --dagfilejson="Library/Bee/200b0aE.dag.json" --profile="Library/Bee/backend2.traceevents" ScriptAssemblies
+WorkingDir: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project
+ExitCode: 0 Duration: 0s19ms
+Finished compiling graph: 175 nodes, 805 flattened edges (789 ToBuild, 6 ToUse), maximum node priority 25
+*** Tundra build success (0.01 seconds), 0 items updated, 172 evaluated
+AssetDatabase: script compilation time: 0.549448s
+Begin MonoManager ReloadAssembly
+Total cache size 142080259
+Total cache size after purge 142080259, took 00:00:00.0368754
+Symbol file LoadedFromMemory is not a mono symbol file
+- Loaded All Assemblies, in  0.159 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Native extension for iOS target not found
+Native extension for Android target not found
+Native extension for OSXStandalone target not found
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.240 seconds
+Domain Reload Profiling: 399ms
+	BeginReloadAssembly (79ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (5ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (31ms)
+	RebuildCommonClasses (18ms)
+	RebuildNativeTypeToScriptingClass (7ms)
+	initialDomainReloadingComplete (9ms)
+	LoadAllAssembliesAndSetupDomain (46ms)
+		LoadAssemblies (61ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (13ms)
+			TypeCache.Refresh (11ms)
+				TypeCache.ScanAssembly (7ms)
+			BuildScriptInfoCaches (1ms)
+			ResolveRequiredComponents (0ms)
+	FinalizeReload (240ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (166ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (20ms)
+			SetLoadedEditorAssemblies (1ms)
+			BeforeProcessingInitializeOnLoad (44ms)
+			ProcessInitializeOnLoadAttributes (86ms)
+			ProcessInitializeOnLoadMethodAttributes (16ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (2ms)
+Asset Pipeline Refresh (id=b04c6d0d0de254a8c8ab0517ce5e2868): Total: 1.029 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=299 ms
+		Asset DB Callback time: managed=5 ms, native=11 ms
+		Scripting: domain reloads=1, domain reload time=160 ms, compile time=550 ms, other=1 ms
+		Project Asset Count: scripts=119, non-scripts=92
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 1
+	InvokeCustomDependenciesCallbacks: 0.001ms
+	InvokePackagesCallback: 11.631ms
+	ApplyChangesToAssetFolders: 0.154ms
+	Scan: 27.160ms
+	OnSourceAssetsModified: 0.000ms
+	CategorizeAssetsWithTransientArtifact: 0.308ms
+	ProcessAssetsWithTransientArtifactChanges: 0.765ms
+	CategorizeAssets: 0.827ms
+	ImportOutOfDateAssets: 240.497ms (-310.106ms without children)
+		CompileScripts: 550.357ms
+		ReloadNativeAssets: 0.000ms
+		UnloadImportedAssets: 0.117ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.023ms
+		InitializingProgressBar: 0.000ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.105ms
+	PostProcessAllAssets: 5.402ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.000ms
+	UnloadStreamsBegin: 0.445ms
+	PersistCurrentRevisions: 0.004ms
+	UnloadStreamsEnd: 0.000ms
+	GenerateScriptTypeHashes: 0.137ms
+	Untracked: 741.342ms
+
+Application.AssetDatabase Initial Refresh End
+Launching external process: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Helpers/UnityShaderCompiler
+Launched and connected shader compiler UnityShaderCompiler after 0.02 seconds
+Scanning for USB devices : 0.192ms
+Initializing Unity extensions:
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-manual-test-project
+Unloading 3 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 81 unused Assets / (0.9 MB). Loaded Objects now: 687.
+Memory consumption went from 130.8 MB to 129.9 MB.
+Total: 3.654958 ms (FindLiveObjects: 0.019875 ms CreateObjectMapping: 0.003292 ms MarkObjects: 3.361375 ms  DeleteObjects: 0.270166 ms)
+
+[LAYOUT] About to load /Users/geuneda/Library/Preferences/Unity/Editor-5.x/Layouts/current/default-6000.dwlt, keepMainWindow=False
+[LAYOUT] About to save layout /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/UserSettings/Layouts/default-6000.dwlt
+[LAYOUT] About to save layout /Users/geuneda/Library/Preferences/Unity/Editor-5.x/Layouts/current/default-6000.dwlt
+[MODES] ModeService[default].InitializeCurrentMode
+[MODES] ModeService[default].RaiseModeChanged(default, default)
+This project uses Input Manager, which is marked for deprecation. To manage input in your project, use the <a href="https://docs.unity3d.com/Packages/com.unity.inputsystem@latest">Input System package</a> instead.
+Launching external process: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Helpers/UnityShaderCompiler
+Launched and connected shader compiler UnityShaderCompiler after 0.03 seconds
+Launching external process: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Helpers/UnityShaderCompiler
+Launched and connected shader compiler UnityShaderCompiler after 0.02 seconds
+[Project] Loading completed in 3.883 seconds
+	Project init time: 				2.162 seconds
+		Template init time: 		0.000 seconds
+		Package Manager init time: 		0.347 seconds
+		Asset Database init time: 		0.094 seconds
+		Global illumination init time: 	0.000 seconds
+		Assemblies load time: 			0.397 seconds
+		Unity extensions init time: 	0.000 seconds
+		Asset Database refresh time: 	1.029 seconds
+	Scene opening time: 			1.597 seconds
+##utp:{"type":"ProjectInfo","version":2,"phase":"Immediate","time":1773703761789,"processId":17294,"projectLoad":3.8831881250000008,"projectInit":2.162147875,"templateInit":0.0,"packageManagerInit":0.347430208,"assetDatabaseInit":0.094246041,"globalIlluminationInit":0.000355125,"assembliesLoad":0.397201625,"unityExtensionsInit":0.000396667,"assetDatabaseRefresh":1.028601625,"sceneOpening":1.597460542}
+##utp:{"type":"EditorInfo","version":2,"phase":"Immediate","time":1773703761789,"processId":17294,"editorVersion":"6000.3.11f1 (3000ef702840)","branch":"6000.3/staging","buildType":"Release","platform":"OSX"}
+Subscribe to USB device events
+Scanning for USB devices : 0.331ms
+[Licensing::Client] Connection to LicenseClient-geuneda-6000.3.11-notifications lost
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-geuneda-6000.3.11-notifications" at "2026-03-16T23:29:21.796042Z"
+Asset Pipeline Refresh (id=e753f77eec4d34bf5b5310746acbfed7): Total: 0.011 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Asset Pipeline Refresh (id=41a8563f2fb1d40b989ac92646f9d382): Total: 0.013 seconds - Initiated by RefreshV2(AllowForceSynchronousImport)
+Request Asset Garbage Collect because used heap size increased from 130.0 MB to 409.3 MB, exceeding the threshold of 256.0 MB.
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 38 unused Assets / (86.6 KB). Loaded Objects now: 1722.
+Memory consumption went from 408.7 MB to 408.6 MB.
+Total: 11.705708 ms (FindLiveObjects: 0.042958 ms CreateObjectMapping: 0.004500 ms MarkObjects: 11.472625 ms  DeleteObjects: 0.185375 ms)
+
+Created GICache directory at /Users/geuneda/Library/Caches/com.unity3d.UnityEditor/GiCache. Took: 0.009s, timestamps: [3.891 - 3.899]
+[Licensing::Client] Successfully updated the access token
+[Licensing::Module] Successfully updated access token: "E1deGzpt"... (expires: 2026-03-17T00:47:41Z)
+Asset Pipeline Refresh (id=9c78a119e5f614ec9a42c89b89e9d476): Total: 0.010 seconds - Initiated by RefreshV2(AllowForceSynchronousImport)
+[Licensing::Client] Successfully resolved entitlement details
+Start Indexing on Editor startup
+[Indexing] Starting Initial Indexing for Assets
+Android Extension - Scanning For ADB Devices 3074 ms
+Android Extension - Scanning For ADB Devices 59 ms
+Attempted to call .Dispose on an already disposed CancellationTokenSource
+Android Extension - Scanning For ADB Devices 86 ms
+Android Extension - Scanning For ADB Devices 80 ms
+TrimDiskCacheJob: Current cache size 0mb
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1 unused Assets / (45.8 KB). Loaded Objects now: 1728.
+Memory consumption went from 415.2 MB to 415.1 MB.
+Total: 10.609167 ms (FindLiveObjects: 0.063125 ms CreateObjectMapping: 0.011708 ms MarkObjects: 10.507458 ms  DeleteObjects: 0.026458 ms)
+
+Start importing Assets/CliScene.unity using Guid(f7c6b496692324823ba486810933c75f) (DefaultImporter) -> (artifact id: '40ba8d917c5708c928aa55e13981d896') in 0.002465917 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=cdf8fdcbcb7ef476f8eece7224a16586): Total: 0.025 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/CliMaterial.mat using Guid(8fa06524f9adc48eeb5fdb30450b8043) (NativeFormatImporter) -> (artifact id: '1033d4acca607ab54e4e7ada1a4de914') in 0.000618292 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=0b58f7f4c76c847f68f2a5b04814aedf): Total: 0.011 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Starting new worker id: 0 with log in 
+Starting new worker id: 1 with log in 
+Worker ready: AssetImportWorker1 1
+Worker ready: AssetImportWorker0 0
+[Worker1] Start importing Assets/CliScene.unity using Guid(f7c6b496692324823ba486810933c75f) Importer(2089858483,b0f066a214c2f5e87bad3c948f4d605d) 
+[Worker0] Start importing Assets/CliMaterial.mat using Guid(8fa06524f9adc48eeb5fdb30450b8043) Importer(2089858483,b0f066a214c2f5e87bad3c948f4d605d) 
+[Worker0] (ScriptedImporter)
+[Worker1] (ScriptedImporter)
+[Worker1]  -> (artifact id: '4c5c1aa01eaacfac2774ff1bd3e89036') in 0.025960417 seconds
+[Worker0]  -> (artifact id: '40b9c7dcb0961b1f6b95b0ff5f75374b') in 0.039595584 seconds
+editor live test
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityCliBridge.UnityCliBridgeServer/<>c__DisplayClass12_0:<ExecuteToolAsync>b__31 () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:468)
+UnityCliBridge.UnityCliBridgeServer/<>c__DisplayClass23_0`1<object>:<OnMainThreadAsync>b__0 () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:624)
+UnityCliBridge.UnityCliBridgeServer:OnEditorUpdate () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:639)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions () (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorApplication.cs:392)
+
+(Filename: /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs Line: 468)
+
+Launching external process: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Helpers/UnityShaderCompiler
+Launched and connected shader compiler UnityShaderCompiler after 0.04 seconds
+Launching external process: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Helpers/UnityShaderCompiler
+Launched and connected shader compiler UnityShaderCompiler after 0.02 seconds
+[ScriptCompilation] Requested script compilation because: Assetdatabase observed changes in script compilation related files
+AssetDatabase: script compilation time: 0.000344s
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=47eb57ef1ca5a4e3fb33bb5362609cc3): Total: 0.021 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+[Licensing::Client] Successfully resolved entitlement details
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc - - 200 - application/grpc 1.0760ms
+Starting: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/BuildPipeline/bee_backend --ipc --defer-dag-verification --dagfile="Library/Bee/200b0aE.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project
+ExitCode: 0 Duration: 1s991ms
+[169/172    1s] Csc Library/Bee/artifacts/200b0aE.dag/UnityCliBridge.Editor.dll (+2 others)
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(588,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(598,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(608,63): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(649,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(680,42): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(685,41): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(28,43): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(29,24): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(725,23): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(270,62): warning CS0618: 'EditorUtility.InstanceIDToObject(int)' is obsolete: 'InstanceIDToObject(int) is obsolete. Use EditorUtility.EntityIdToObject instead.'
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(518,59): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(574,20): warning CS0618: 'EditorUtility.InstanceIDToObject(int)' is obsolete: 'InstanceIDToObject(int) is obsolete. Use EditorUtility.EntityIdToObject instead.'
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(692,64): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+[           0s] Csc Library/Bee/artifacts/200b0aE.dag/UnityCliBridge.Editor.dll (+2 others) [CacheWrite 00000000000000000000000000000005]
+[170/172    0s] CopyFiles Library/ScriptAssemblies/UnityCliBridge.Editor.pdb
+[171/172    0s] CopyFiles Library/ScriptAssemblies/UnityCliBridge.Editor.dll
+*** Tundra build success (1.98 seconds), 3 items updated, 172 evaluated
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(588,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(598,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(608,63): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(649,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(680,42): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(685,41): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(28,43): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(29,24): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(725,23): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(270,62): warning CS0618: 'EditorUtility.InstanceIDToObject(int)' is obsolete: 'InstanceIDToObject(int) is obsolete. Use EditorUtility.EntityIdToObject instead.'
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(518,59): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(574,20): warning CS0618: 'EditorUtility.InstanceIDToObject(int)' is obsolete: 'InstanceIDToObject(int) is obsolete. Use EditorUtility.EntityIdToObject instead.'
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(692,64): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+Reloading assemblies after finishing script compilation.
+Reloading assemblies after forced synchronous recompile.
+Attempted to call .Dispose on an already disposed CancellationTokenSource
+Begin MonoManager ReloadAssembly
+Total cache size 142176034
+Total cache size after purge 142176034, took 00:00:00.0502578
+Thread 0x174f03000 may have been prematurely finalized
+<CFData 0x986ecd590 [0x201a9b7a0]>{length = 6, capacity = 6, bytes = 0xd011e5821da3}
+Symbol file LoadedFromMemory is not a mono symbol file
+- Loaded All Assemblies, in  0.246 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Native extension for iOS target not found
+Native extension for Android target not found
+Native extension for OSXStandalone target not found
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+[Licensing::Client] Successfully resolved entitlement details
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.576 seconds
+Domain Reload Profiling: 822ms
+	BeginReloadAssembly (198ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (46ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (47ms)
+	RebuildCommonClasses (18ms)
+	RebuildNativeTypeToScriptingClass (7ms)
+	initialDomainReloadingComplete (9ms)
+	LoadAllAssembliesAndSetupDomain (15ms)
+		LoadAssemblies (67ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (8ms)
+			TypeCache.Refresh (3ms)
+				TypeCache.ScanAssembly (0ms)
+			BuildScriptInfoCaches (3ms)
+			ResolveRequiredComponents (0ms)
+	FinalizeReload (576ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (184ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (20ms)
+			SetLoadedEditorAssemblies (2ms)
+			BeforeProcessingInitializeOnLoad (67ms)
+			ProcessInitializeOnLoadAttributes (77ms)
+			ProcessInitializeOnLoadMethodAttributes (18ms)
+			AfterProcessingInitializeOnLoad (1ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (203ms)
+Asset Pipeline Refresh (id=14933d3e848db479ea2df97f2c5e2de5): Total: 0.841 seconds - Initiated by StopAssetImportingV2(ForceSynchronousImport | ForceDomainReload)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=586 ms
+		Asset DB Callback time: managed=4 ms, native=0 ms
+		Scripting: domain reloads=1, domain reload time=248 ms, compile time=1 ms, other=0 ms
+		Project Asset Count: scripts=119, non-scripts=94
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 0
+	InvokeCustomDependenciesCallbacks: 0.000ms
+	InvokePackagesCallback: 1.002ms
+	ApplyChangesToAssetFolders: 0.124ms
+	Scan: 0.000ms
+	OnSourceAssetsModified: 0.000ms
+	CategorizeAssetsWithTransientArtifact: 0.001ms
+	ProcessAssetsWithTransientArtifactChanges: 0.036ms
+	CategorizeAssets: 0.560ms
+	ImportOutOfDateAssets: 576.889ms (575.703ms without children)
+		CompileScripts: 0.664ms
+		CollectScriptTypesHashes: 0.003ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.355ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.020ms
+		InitializingProgressBar: 0.000ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.143ms
+	PostProcessAllAssets: 4.950ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.010ms
+	UnloadStreamsBegin: 0.001ms
+	PersistCurrentRevisions: 0.004ms
+	UnloadStreamsEnd: 0.000ms
+	GenerateScriptTypeHashes: 0.046ms
+	Untracked: 257.287ms
+
+[Licensing::Client] Successfully resolved entitlement details
+[ScriptCompilation] Requested script compilation because: Assetdatabase observed changes in script compilation related files
+AssetDatabase: script compilation time: 0.000185s
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=82ec273f5c23d4715b22c0a33df75de8): Total: 0.025 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 3 unused Assets / (2.9 KB). Loaded Objects now: 1750.
+Memory consumption went from 0.53 GB to 0.53 GB.
+Total: 11.040333 ms (FindLiveObjects: 0.052083 ms CreateObjectMapping: 0.004667 ms MarkObjects: 10.961833 ms  DeleteObjects: 0.021541 ms)
+
+Parent directory must exist before creating asset at: Assets/Scenes/CliWorkflow.unity
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:LogError (object)
+UnityEditor.Utils.Paths:CheckValidAssetPathAndThatDirectoryExists (string,string) (at /Users/bokken/build/output/unity/unity/Editor/Mono/Utils/Paths.cs:155)
+UnityEditor.SceneManagement.EditorSceneManager:SaveScene (UnityEngine.SceneManagement.Scene,string,bool) (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorSceneManager.cs:92)
+UnityEditor.SceneManagement.EditorSceneManager:SaveScene (UnityEngine.SceneManagement.Scene,string) (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorSceneManager.cs:78)
+UnityCliBridge.UnityCliBridgeServer/<>c__DisplayClass12_0:<ExecuteToolAsync>b__0 () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:191)
+UnityCliBridge.UnityCliBridgeServer/<>c__DisplayClass23_0`1<object>:<OnMainThreadAsync>b__0 () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:625)
+UnityCliBridge.UnityCliBridgeServer:OnEditorUpdate () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:640)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions () (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorApplication.cs:392)
+
+(Filename: /Users/bokken/build/output/unity/unity/Editor/Mono/Utils/Paths.cs Line: 155)
+
+[Licensing::Client] Successfully resolved entitlement details
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc - - 200 - application/grpc 2.0609ms
+Starting: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/BuildPipeline/bee_backend --ipc --defer-dag-verification --dagfile="Library/Bee/200b0aE.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project
+Player ready
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityCliBridge.UnityCliBridgeServer/<>c__DisplayClass12_0:<ExecuteToolAsync>b__31 () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:469)
+UnityCliBridge.UnityCliBridgeServer/<>c__DisplayClass23_0`1<object>:<OnMainThreadAsync>b__0 () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:625)
+UnityCliBridge.UnityCliBridgeServer:OnEditorUpdate () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:640)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions () (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorApplication.cs:392)
+
+(Filename: /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs Line: 469)
+
+ExitCode: 0 Duration: 0s279ms
+[169/172    0s] Csc Library/Bee/artifacts/200b0aE.dag/UnityCliBridge.Editor.dll (+2 others)
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(590,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(600,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(610,63): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(651,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(682,42): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(687,41): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(28,43): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(29,24): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(738,23): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(271,62): warning CS0618: 'EditorUtility.InstanceIDToObject(int)' is obsolete: 'InstanceIDToObject(int) is obsolete. Use EditorUtility.EntityIdToObject instead.'
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(520,59): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(576,20): warning CS0618: 'EditorUtility.InstanceIDToObject(int)' is obsolete: 'InstanceIDToObject(int) is obsolete. Use EditorUtility.EntityIdToObject instead.'
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(694,64): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+[           0s] Csc Library/Bee/artifacts/200b0aE.dag/UnityCliBridge.Editor.dll (+2 others) [CacheWrite 00000000000000000000000000000005]
+[170/172    0s] CopyFiles Library/ScriptAssemblies/UnityCliBridge.Editor.dll
+[171/172    0s] CopyFiles Library/ScriptAssemblies/UnityCliBridge.Editor.pdb
+*** Tundra build success (0.26 seconds), 3 items updated, 172 evaluated
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(590,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(600,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(610,63): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(651,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(682,42): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(687,41): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(28,43): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(29,24): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(738,23): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(271,62): warning CS0618: 'EditorUtility.InstanceIDToObject(int)' is obsolete: 'InstanceIDToObject(int) is obsolete. Use EditorUtility.EntityIdToObject instead.'
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(520,59): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(576,20): warning CS0618: 'EditorUtility.InstanceIDToObject(int)' is obsolete: 'InstanceIDToObject(int) is obsolete. Use EditorUtility.EntityIdToObject instead.'
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(694,64): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+Reloading assemblies after finishing script compilation.
+Reloading assemblies after forced synchronous recompile.
+Begin MonoManager ReloadAssembly
+Thread 0x170787000 may have been prematurely finalized
+Total cache size 142271885
+Total cache size after purge 142271885, took 00:00:00.0766773
+Symbol file LoadedFromMemory is not a mono symbol file
+- Loaded All Assemblies, in  0.289 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Native extension for iOS target not found
+Native extension for Android target not found
+Native extension for OSXStandalone target not found
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+[Licensing::Client] Successfully resolved entitlement details
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.628 seconds
+Domain Reload Profiling: 917ms
+	BeginReloadAssembly (232ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (46ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (49ms)
+	RebuildCommonClasses (25ms)
+	RebuildNativeTypeToScriptingClass (7ms)
+	initialDomainReloadingComplete (10ms)
+	LoadAllAssembliesAndSetupDomain (15ms)
+		LoadAssemblies (95ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (8ms)
+			TypeCache.Refresh (3ms)
+				TypeCache.ScanAssembly (0ms)
+			BuildScriptInfoCaches (4ms)
+			ResolveRequiredComponents (0ms)
+	FinalizeReload (628ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (197ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (22ms)
+			SetLoadedEditorAssemblies (2ms)
+			BeforeProcessingInitializeOnLoad (74ms)
+			ProcessInitializeOnLoadAttributes (82ms)
+			ProcessInitializeOnLoadMethodAttributes (17ms)
+			AfterProcessingInitializeOnLoad (1ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (221ms)
+Asset Pipeline Refresh (id=d9ed5f93fb57340a1bd6f14c71fe9538): Total: 0.937 seconds - Initiated by StopAssetImportingV2(ForceSynchronousImport | ForceDomainReload)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=639 ms
+		Asset DB Callback time: managed=5 ms, native=0 ms
+		Scripting: domain reloads=1, domain reload time=291 ms, compile time=1 ms, other=0 ms
+		Project Asset Count: scripts=119, non-scripts=94
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 0
+	InvokeCustomDependenciesCallbacks: 0.000ms
+	InvokePackagesCallback: 0.913ms
+	ApplyChangesToAssetFolders: 0.139ms
+	Scan: 0.000ms
+	OnSourceAssetsModified: 0.000ms
+	CategorizeAssetsWithTransientArtifact: 0.001ms
+	ProcessAssetsWithTransientArtifactChanges: 0.040ms
+	CategorizeAssets: 0.635ms
+	ImportOutOfDateAssets: 628.292ms (627.213ms without children)
+		CompileScripts: 0.757ms
+		CollectScriptTypesHashes: 0.000ms
+		ReloadNativeAssets: 0.000ms
+		UnloadImportedAssets: 0.001ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.021ms
+		InitializingProgressBar: 0.000ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.300ms
+	PostProcessAllAssets: 5.431ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.025ms
+	UnloadStreamsBegin: 0.002ms
+	PersistCurrentRevisions: 0.005ms
+	UnloadStreamsEnd: 0.000ms
+	GenerateScriptTypeHashes: 0.056ms
+	Untracked: 301.856ms
+
+[Licensing::Client] Successfully resolved entitlement details
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1 unused Assets / (0.7 KB). Loaded Objects now: 1751.
+Memory consumption went from 0.56 GB to 0.56 GB.
+Total: 10.852917 ms (FindLiveObjects: 0.051459 ms CreateObjectMapping: 0.004958 ms MarkObjects: 10.784042 ms  DeleteObjects: 0.012334 ms)
+
+Start importing Assets/Scenes using Guid(f514d15b6d04a441f9ea91a768728472) (DefaultImporter) -> (artifact id: 'c157c9e6591ed317800549910af91ed7') in 0.002741625 seconds
+Start importing Assets/Scenes/CliWorkflow.unity using Guid(08df76b7c3cea4d068cc288a723b8ba0) (DefaultImporter) -> (artifact id: 'ba999031ab1a3ffc648b1f2dcbef61a7') in 0.000433583 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=c7be6e665b8514ed3954b9d5da3ce889): Total: 0.023 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Player ready
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityCliBridge.UnityCliBridgeServer/<>c__DisplayClass12_0:<ExecuteToolAsync>b__31 () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:471)
+UnityCliBridge.UnityCliBridgeServer/<>c__DisplayClass23_0`1<object>:<OnMainThreadAsync>b__0 () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:627)
+UnityCliBridge.UnityCliBridgeServer:OnEditorUpdate () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:642)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions () (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorApplication.cs:392)
+
+(Filename: /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs Line: 471)
+
+Asset Pipeline Refresh (id=7b874d3e75c954d0bb7bb1a4afa4869e): Total: 0.010 seconds - Initiated by RefreshV2(AllowForceSynchronousImport)
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0.8 KB). Loaded Objects now: 1751.
+Memory consumption went from 0.58 GB to 0.58 GB.
+Total: 11.899584 ms (FindLiveObjects: 0.051250 ms CreateObjectMapping: 0.005125 ms MarkObjects: 11.836416 ms  DeleteObjects: 0.005958 ms)
+
+Start importing Assets/Scenes/CliWorkflow.unity using Guid(08df76b7c3cea4d068cc288a723b8ba0) (DefaultImporter) -> (artifact id: 'fd9fd875745e4f35cf0c8d70598ab66c') in 0.001183584 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=eba87753de5ff428e827b9ce6ec490f0): Total: 0.006 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Player ready
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityCliBridge.UnityCliBridgeServer/<>c__DisplayClass12_0:<ExecuteToolAsync>b__31 () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:471)
+UnityCliBridge.UnityCliBridgeServer/<>c__DisplayClass23_0`1<object>:<OnMainThreadAsync>b__0 () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:627)
+UnityCliBridge.UnityCliBridgeServer:OnEditorUpdate () (at /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs:642)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions () (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorApplication.cs:392)
+
+(Filename: /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs Line: 471)
+
+Asset Pipeline Refresh (id=8ac17645cb6cb463e8316b846a61b2d2): Total: 0.011 seconds - Initiated by RefreshV2(AllowForceSynchronousImport)
+Thread 0x17042f000 may have been prematurely finalized
+Reloading assemblies for play mode.
+Reloading assemblies after forced synchronous recompile.
+[Licensing::Client] Successfully resolved entitlement details
+Begin MonoManager ReloadAssembly
+Symbol file LoadedFromMemory is not a mono symbol file
+- Loaded All Assemblies, in  0.163 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Native extension for iOS target not found
+2026-03-17 08:34:36.876 Unity[17294:81746] [XcodeApplications] Failed to read NSDictionary from path  Ί	/Contents/Info.plist
+Native extension for Android target not found
+Native extension for OSXStandalone target not found
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[Licensing::Client] Successfully resolved entitlement details
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.564 seconds
+Domain Reload Profiling: 727ms
+	BeginReloadAssembly (117ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (28ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (38ms)
+	RebuildCommonClasses (20ms)
+	RebuildNativeTypeToScriptingClass (7ms)
+	initialDomainReloadingComplete (9ms)
+	LoadAllAssembliesAndSetupDomain (10ms)
+		LoadAssemblies (31ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (8ms)
+			TypeCache.Refresh (2ms)
+				TypeCache.ScanAssembly (0ms)
+			BuildScriptInfoCaches (4ms)
+			ResolveRequiredComponents (0ms)
+	FinalizeReload (564ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (166ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (20ms)
+			SetLoadedEditorAssemblies (2ms)
+			BeforeProcessingInitializeOnLoad (50ms)
+			ProcessInitializeOnLoadAttributes (78ms)
+			ProcessInitializeOnLoadMethodAttributes (16ms)
+			AfterProcessingInitializeOnLoad (1ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (224ms)
+Asset Pipeline Refresh (id=0086a4548309b4516b738472af32da56): Total: 0.748 seconds - Initiated by StopAssetImportingV2(ForceSynchronousImport | ForceDomainReload)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=575 ms
+		Asset DB Callback time: managed=5 ms, native=0 ms
+		Scripting: domain reloads=1, domain reload time=166 ms, compile time=1 ms, other=0 ms
+		Project Asset Count: scripts=120, non-scripts=95
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 0
+	InvokeCustomDependenciesCallbacks: 0.000ms
+	InvokePackagesCallback: 0.651ms
+	ApplyChangesToAssetFolders: 0.117ms
+	Scan: 0.000ms
+	OnSourceAssetsModified: 0.000ms
+	CategorizeAssetsWithTransientArtifact: 0.001ms
+	ProcessAssetsWithTransientArtifactChanges: 0.060ms
+	CategorizeAssets: 0.658ms
+	ImportOutOfDateAssets: 564.814ms (563.918ms without children)
+		CompileScripts: 0.710ms
+		CollectScriptTypesHashes: 0.000ms
+		ReloadNativeAssets: 0.000ms
+		UnloadImportedAssets: 0.000ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.020ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.166ms
+	PostProcessAllAssets: 5.275ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.008ms
+	UnloadStreamsBegin: 0.426ms
+	PersistCurrentRevisions: 0.004ms
+	UnloadStreamsEnd: 0.000ms
+	GenerateScriptTypeHashes: 0.051ms
+	Untracked: 175.695ms
+
+Loaded scene 'Temp/__Backupscenes/0.backup'
+	Deserialize:            0.358 ms
+	Integration:            18.440 ms
+	Integration of assets:  0.001 ms
+	Thread Wait Time:       0.006 ms
+	Total Operation Time:   18.805 ms
+[Licensing::Client] Successfully resolved entitlement details
+Thread 0x171ccb000 may have been prematurely finalized
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+Loaded scene 'Temp/__Backupscenes/0.backup'
+	Deserialize:            0.312 ms
+	Integration:            10.555 ms
+	Integration of assets:  0.001 ms
+	Thread Wait Time:       0.008 ms
+	Total Operation Time:   10.875 ms
+Unloading 1 unused Assets / (0 B). Loaded Objects now: 1753.
+Memory consumption went from 0.60 GB to 0.60 GB.
+Total: 11.342875 ms (FindLiveObjects: 0.047917 ms CreateObjectMapping: 0.004833 ms MarkObjects: 11.277583 ms  DeleteObjects: 0.012167 ms)
+
+[Licensing::Client] Successfully resolved entitlement details
+[ScriptCompilation] Requested script compilation because: Assetdatabase observed changes in script compilation related files
+AssetDatabase: script compilation time: 0.000187s
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=7d75d239ed086450aa5306441c3509f8): Total: 0.033 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc - - 200 - application/grpc 0.1663ms
+Starting: /Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/BuildPipeline/bee_backend --ipc --defer-dag-verification --dagfile="Library/Bee/200b0aE.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project
+ExitCode: 0 Duration: 0s222ms
+[169/172    0s] Csc Library/Bee/artifacts/200b0aE.dag/UnityCliBridge.Editor.dll (+2 others)
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(591,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(601,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(611,63): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(652,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(683,42): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(688,41): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(28,43): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(29,24): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(739,23): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(271,62): warning CS0618: 'EditorUtility.InstanceIDToObject(int)' is obsolete: 'InstanceIDToObject(int) is obsolete. Use EditorUtility.EntityIdToObject instead.'
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(520,59): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(577,20): warning CS0618: 'EditorUtility.InstanceIDToObject(int)' is obsolete: 'InstanceIDToObject(int) is obsolete. Use EditorUtility.EntityIdToObject instead.'
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(695,64): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+[           0s] Csc Library/Bee/artifacts/200b0aE.dag/UnityCliBridge.Editor.dll (+2 others) [CacheWrite 00000000000000000000000000000005]
+[170/172    0s] CopyFiles Library/ScriptAssemblies/UnityCliBridge.Editor.dll
+[171/172    0s] CopyFiles Library/ScriptAssemblies/UnityCliBridge.Editor.pdb
+*** Tundra build success (0.20 seconds), 3 items updated, 172 evaluated
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(591,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(601,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(611,63): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(652,66): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(683,42): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(688,41): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(28,43): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(29,24): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(739,23): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(271,62): warning CS0618: 'EditorUtility.InstanceIDToObject(int)' is obsolete: 'InstanceIDToObject(int) is obsolete. Use EditorUtility.EntityIdToObject instead.'
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(520,59): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(577,20): warning CS0618: 'EditorUtility.InstanceIDToObject(int)' is obsolete: 'InstanceIDToObject(int) is obsolete. Use EditorUtility.EntityIdToObject instead.'
+/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs(695,64): warning CS8632: The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+Reloading assemblies after finishing script compilation.
+Reloading assemblies after forced synchronous recompile.
+Begin MonoManager ReloadAssembly
+Thread 0x1705d3000 may have been prematurely finalized
+Total cache size 142368252
+Total cache size after purge 142368252, took 00:00:00.0486912
+Symbol file LoadedFromMemory is not a mono symbol file
+- Loaded All Assemblies, in  0.263 seconds
+Refreshing native plugins compatible for Editor in 0.00 ms, found 0 plugins.
+Native extension for iOS target not found
+Native extension for Android target not found
+Native extension for OSXStandalone target not found
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.627 seconds
+Domain Reload Profiling: 891ms
+	BeginReloadAssembly (211ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (33ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (53ms)
+	RebuildCommonClasses (20ms)
+	RebuildNativeTypeToScriptingClass (7ms)
+	initialDomainReloadingComplete (10ms)
+	LoadAllAssembliesAndSetupDomain (14ms)
+		LoadAssemblies (87ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (8ms)
+			TypeCache.Refresh (3ms)
+				TypeCache.ScanAssembly (0ms)
+			BuildScriptInfoCaches (4ms)
+			ResolveRequiredComponents (0ms)
+	FinalizeReload (628ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (199ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (24ms)
+			SetLoadedEditorAssemblies (2ms)
+			BeforeProcessingInitializeOnLoad (76ms)
+			ProcessInitializeOnLoadAttributes (83ms)
+			ProcessInitializeOnLoadMethodAttributes (15ms)
+			AfterProcessingInitializeOnLoad (1ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (217ms)
+Asset Pipeline Refresh (id=05a894036009440a294a765e553f4c83): Total: 0.910 seconds - Initiated by StopAssetImportingV2(ForceSynchronousImport | ForceDomainReload)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=638 ms
+		Asset DB Callback time: managed=5 ms, native=0 ms
+		Scripting: domain reloads=1, domain reload time=265 ms, compile time=1 ms, other=0 ms
+		Project Asset Count: scripts=120, non-scripts=95
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 0
+	InvokeCustomDependenciesCallbacks: 0.001ms
+	InvokePackagesCallback: 1.090ms
+	ApplyChangesToAssetFolders: 0.243ms
+	Scan: 0.000ms
+	OnSourceAssetsModified: 0.000ms
+	CategorizeAssetsWithTransientArtifact: 0.001ms
+	ProcessAssetsWithTransientArtifactChanges: 0.043ms
+	CategorizeAssets: 0.637ms
+	ImportOutOfDateAssets: 628.027ms (627.118ms without children)
+		CompileScripts: 0.730ms
+		CollectScriptTypesHashes: 0.002ms
+		ReloadNativeAssets: 0.000ms
+		UnloadImportedAssets: 0.001ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.021ms
+		InitializingProgressBar: 0.000ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.156ms
+	PostProcessAllAssets: 5.095ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.038ms
+	UnloadStreamsBegin: 0.002ms
+	PersistCurrentRevisions: 0.004ms
+	UnloadStreamsEnd: 0.000ms
+	GenerateScriptTypeHashes: 0.051ms
+	Untracked: 275.084ms
+

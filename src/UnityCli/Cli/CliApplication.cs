@@ -151,7 +151,7 @@ public sealed class CliApplication
 
         var kv = JsonHelpers.ParseKeyValuePairs(args.Skip(1));
         var after = kv["after"]?.GetValue<long>() ?? 0;
-        var waitMs = kv["waitMs"]?.GetValue<int>() ?? options.TimeoutMs;
+        var waitMs = (int)(kv["waitMs"]?.GetValue<long>() ?? options.TimeoutMs);
         var response = await client.PollEventsAsync(after, waitMs, cancellationToken);
         _console.WriteLine(JsonHelpers.ToPrettyJson(response));
         return 0;

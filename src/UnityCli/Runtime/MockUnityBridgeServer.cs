@@ -798,6 +798,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         return new JsonObject
         {
             ["isPlaying"] = _playMode,
+            ["isPlayingOrWillChangePlaymode"] = _playMode,
             ["isPaused"] = _pauseMode,
             ["selectedObjectId"] = _selectedObjectId,
             ["activeScenePath"] = _activeScenePath,

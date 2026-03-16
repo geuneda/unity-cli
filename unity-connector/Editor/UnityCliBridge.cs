@@ -16,8 +16,8 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace UnityCliBridge;
-
+namespace UnityCliBridge
+{
 [InitializeOnLoad]
 public static class UnityCliBridgeServer
 {
@@ -142,7 +142,8 @@ public static class UnityCliBridgeServer
             if (method == "GET" && path.StartsWith("resources/", StringComparison.OrdinalIgnoreCase))
             {
                 var resourceName = Uri.UnescapeDataString(path.Substring("resources/".Length));
-                await WriteJsonAsync(context, BuildResource(resourceName));
+                var resource = await OnMainThreadAsync(() => BuildResource(resourceName));
+                await WriteJsonAsync(context, resource);
                 return;
             }
 
@@ -186,6 +187,7 @@ public static class UnityCliBridgeServer
             "scene.create" => await OnMainThreadAsync(() =>
             {
                 var path = arguments.Value<string>("path") ?? "Assets/Scenes/CliScene.unity";
+                EnsureParentDirectory(path);
                 var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
                 EditorSceneManager.SaveScene(scene, path);
                 Emit("scene.changed", $"Scene created: {path}", new JObject { ["path"] = path });
@@ -337,6 +339,7 @@ public static class UnityCliBridgeServer
             {
                 var path = arguments.Value<string>("path") ?? "Assets/Materials/CliMaterial.mat";
                 var shaderName = arguments.Value<string>("shader") ?? "Universal Render Pipeline/Lit";
+                EnsureParentDirectory(path);
                 var material = new Material(Shader.Find(shaderName));
                 AssetDatabase.CreateAsset(material, path);
                 AssetDatabase.SaveAssets();
@@ -523,6 +526,7 @@ public static class UnityCliBridgeServer
         return new
         {
             isPlaying = EditorApplication.isPlaying,
+            isPlayingOrWillChangePlaymode = EditorApplication.isPlayingOrWillChangePlaymode,
             isPaused = EditorApplication.isPaused,
             selectedObjectId = Selection.activeGameObject != null ? Selection.activeGameObject.GetInstanceID() : 0,
             activeScenePath = SceneManager.GetActiveScene().path,
@@ -715,6 +719,17 @@ public static class UnityCliBridgeServer
         }
     }
 
+    private static void EnsureParentDirectory(string assetPath)
+    {
+        var directory = Path.GetDirectoryName(assetPath);
+        if (string.IsNullOrEmpty(directory))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(directory);
+    }
+
     private sealed class BridgeEvent
     {
         public long Cursor { get; set; }
@@ -723,5 +738,6 @@ public static class UnityCliBridgeServer
         public DateTimeOffset Timestamp { get; set; }
         public JObject? Data { get; set; }
     }
+}
 }
 #endif
