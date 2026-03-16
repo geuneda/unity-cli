@@ -1,0 +1,59 @@
+{
+  "variables": {
+    "scenePath": "Assets/Scenes/CliWorkflow.unity"
+  },
+  "steps": [
+    {
+      "id": "scene",
+      "call": "scene.create",
+      "args": {
+        "path": "${scenePath}"
+      }
+    },
+    {
+      "id": "player",
+      "call": "gameobject.create",
+      "args": {
+        "name": "Player",
+        "scenePath": "${scenePath}",
+        "primitive": "Capsule",
+        "position": [
+          0,
+          1,
+          0
+        ]
+      }
+    },
+    {
+      "id": "log",
+      "call": "console.send",
+      "args": {
+        "message": "Player ready",
+        "level": "info"
+      }
+    },
+    {
+      "id": "wait-log",
+      "waitFor": {
+        "type": "console.log",
+        "contains": "Player ready",
+        "timeoutMs": 1500
+      }
+    },
+    {
+      "id": "tests",
+      "call": "tests.run",
+      "args": {
+        "mode": "EditMode"
+      }
+    },
+    {
+      "id": "wait-tests",
+      "waitFor": {
+        "type": "tests.completed",
+        "contains": "EditMode",
+        "timeoutMs": 2000
+      }
+    }
+  ]
+}

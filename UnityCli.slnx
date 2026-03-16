@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/UnityCli/UnityCli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UnityCli.Tests/UnityCli.Tests.csproj" />
+  </Folder>
+</Solution>

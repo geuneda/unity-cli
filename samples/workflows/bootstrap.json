@@ -1,0 +1,25 @@
+{
+  "calls": [
+    {
+      "name": "scene.create",
+      "arguments": {
+        "path": "Assets/Scenes/Bootstrap.unity"
+      }
+    },
+    {
+      "name": "material.create",
+      "arguments": {
+        "path": "Assets/Materials/Bootstrap.mat",
+        "shader": "Universal Render Pipeline/Lit",
+        "color": "#00C2A8FF"
+      }
+    },
+    {
+      "name": "gameobject.create",
+      "arguments": {
+        "name": "BootstrapCube",
+        "primitive": "Cube"
+      }
+    }
+  ]
+}
