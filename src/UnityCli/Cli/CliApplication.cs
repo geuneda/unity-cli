@@ -231,6 +231,11 @@ public sealed class CliApplication
                 return await RunCompileCommandAsync(client, options, arguments, cancellationToken);
             }
 
+            if (toolName is "editor.play" or "editor.stop")
+            {
+                return await RunPlayModeCommandAsync(client, options, toolName, arguments, cancellationToken);
+            }
+
             var response = await client.CallToolAsync(toolName, arguments, cancellationToken);
             _console.WriteLine(JsonHelpers.ToPrettyJson(response));
             return response.Success ? 0 : 1;
@@ -284,6 +289,11 @@ public sealed class CliApplication
         if (toolName == "editor.compile")
         {
             return await RunCompileCommandAsync(client, options, parameters, cancellationToken);
+        }
+
+        if (toolName is "editor.play" or "editor.stop")
+        {
+            return await RunPlayModeCommandAsync(client, options, toolName, parameters, cancellationToken);
         }
 
         var response = await client.CallToolAsync(toolName, parameters, cancellationToken);
@@ -390,6 +400,51 @@ public sealed class CliApplication
         }
 
         throw new TimeoutException($"Timed out waiting for script compilation completion for '{compilationId}'.");
+    }
+
+    private async Task<int> RunPlayModeCommandAsync(BridgeClient client, GlobalOptions options, string toolName, JsonObject arguments, CancellationToken cancellationToken)
+    {
+        var startResponse = await client.CallToolAsync(toolName, arguments, cancellationToken);
+        if (!startResponse.Success)
+        {
+            _console.WriteLine(JsonHelpers.ToPrettyJson(startResponse));
+            return 1;
+        }
+
+        var targetState = toolName == "editor.play";
+        var timeoutMs = Math.Max(options.TimeoutMs, 30000);
+        var deadline = DateTimeOffset.UtcNow.AddMilliseconds(timeoutMs);
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            try
+            {
+                var state = await client.GetResourceAsync("editor/state", cancellationToken);
+                var isPlaying = state.Data?["isPlaying"]?.GetValue<bool>() ?? false;
+                var changing = state.Data?["isPlayingOrWillChangePlaymode"]?.GetValue<bool>() ?? false;
+                var settled = targetState
+                    ? isPlaying
+                    : !isPlaying && !changing;
+
+                if (settled)
+                {
+                    var finalResponse = new ToolCallResponse(
+                        true,
+                        targetState ? "Play mode entered." : "Play mode exited.",
+                        state.Data,
+                        startResponse.Events);
+                    _console.WriteLine(JsonHelpers.ToPrettyJson(finalResponse));
+                    return 0;
+                }
+            }
+            catch
+            {
+            }
+
+            await Task.Delay(500, cancellationToken);
+        }
+
+        throw new TimeoutException($"Timed out waiting for {(targetState ? "play mode entry" : "play mode exit")}.");
     }
 
     private static bool IsHelp(string command)

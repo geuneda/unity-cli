@@ -57,6 +57,7 @@ public static class UnityCliBridgeServer
     {
         AssemblyReloadEvents.beforeAssemblyReload += Stop;
         EditorApplication.quitting += Stop;
+        EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
         EditorApplication.update += OnEditorUpdate;
         Application.logMessageReceivedThreaded += OnLogReceived;
         Start();
@@ -581,15 +582,11 @@ public static class UnityCliBridgeServer
             }),
             "editor.play" => await OnMainThreadAsync(() =>
             {
-                EditorApplication.isPlaying = true;
-                Emit("editor.play_mode_changed", "Play mode entered.", new JObject { ["isPlaying"] = true });
-                return Success(EditorState(), "Play mode entered.");
+                return Success(RequestPlayMode(true), "Play mode transition requested.");
             }),
             "editor.stop" => await OnMainThreadAsync(() =>
             {
-                EditorApplication.isPlaying = false;
-                Emit("editor.play_mode_changed", "Play mode exited.", new JObject { ["isPlaying"] = false });
-                return Success(EditorState(), "Play mode exited.");
+                return Success(RequestPlayMode(false), "Play mode transition requested.");
             }),
             "editor.pause" => await OnMainThreadAsync(() =>
             {
@@ -640,6 +637,18 @@ public static class UnityCliBridgeServer
             isPaused = EditorApplication.isPaused,
             selectedObjectId = Selection.activeGameObject != null ? Selection.activeGameObject.GetInstanceID() : 0,
             activeScenePath = SceneManager.GetActiveScene().path,
+        };
+    }
+
+    private static JObject RequestPlayMode(bool enabled)
+    {
+        EditorApplication.isPlaying = enabled;
+        return new JObject
+        {
+            ["requestedIsPlaying"] = enabled,
+            ["isPlaying"] = EditorApplication.isPlaying,
+            ["isPlayingOrWillChangePlaymode"] = EditorApplication.isPlayingOrWillChangePlaymode,
+            ["isPaused"] = EditorApplication.isPaused,
         };
     }
 
@@ -1738,6 +1747,26 @@ public static class UnityCliBridgeServer
         {
             action();
         }
+    }
+
+    private static void OnPlayModeStateChanged(PlayModeStateChange stateChange)
+    {
+        string message = stateChange switch
+        {
+            PlayModeStateChange.ExitingEditMode => "Play mode transition: exiting edit mode.",
+            PlayModeStateChange.EnteredPlayMode => "Play mode entered.",
+            PlayModeStateChange.ExitingPlayMode => "Play mode transition: exiting play mode.",
+            PlayModeStateChange.EnteredEditMode => "Play mode exited.",
+            _ => "Play mode state changed.",
+        };
+
+        Emit("editor.play_mode_changed", message, new JObject
+        {
+            ["stateChange"] = stateChange.ToString(),
+            ["isPlaying"] = EditorApplication.isPlaying,
+            ["isPlayingOrWillChangePlaymode"] = EditorApplication.isPlayingOrWillChangePlaymode,
+            ["isPaused"] = EditorApplication.isPaused,
+        });
     }
 
     private static void OnLogReceived(string condition, string stackTrace, LogType type)

@@ -48,7 +48,7 @@ public sealed class BridgeClient : IDisposable
     {
         var request = new ToolCallRequest(toolName, arguments);
         using var response = await _httpClient.PostAsJsonAsync("tools/call", request, JsonHelpers.SerializerOptions, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
         return (await response.Content.ReadFromJsonAsync<ToolCallResponse>(JsonHelpers.SerializerOptions, cancellationToken))!;
     }
 
@@ -60,8 +60,36 @@ public sealed class BridgeClient : IDisposable
     private async Task<T> GetJsonAsync<T>(string relativePath, CancellationToken cancellationToken)
     {
         using var response = await _httpClient.GetAsync(relativePath, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response, cancellationToken);
         return (await response.Content.ReadFromJsonAsync<T>(JsonHelpers.SerializerOptions, cancellationToken))!;
+    }
+
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(payload))
+        {
+            try
+            {
+                var error = JsonSerializer.Deserialize<ToolCallResponse>(payload, JsonHelpers.SerializerOptions);
+                if (error is not null && !string.IsNullOrWhiteSpace(error.Message))
+                {
+                    throw new InvalidOperationException(error.Message);
+                }
+            }
+            catch (JsonException)
+            {
+            }
+
+            throw new InvalidOperationException(payload);
+        }
+
+        response.EnsureSuccessStatusCode();
     }
 
     public void Dispose()
