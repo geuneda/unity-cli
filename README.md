@@ -185,6 +185,8 @@ scripts/verify-editor.sh --stage ui-input --report reports/verify-editor/ui-inpu
   - Button `pointerId` click
   - Sprite `double-tap`, `long-press`, `swipe`
   - Sprite `pointerId` drag/swipe
+  - Toggle 실제 `ui.click` 토글
+  - Slider 실제 `ui.drag` 값 변경
   - Toggle `isOn` 변경
   - Slider `value` 변경
   - ScrollRect `normalizedPosition` 변경과 실제 drag 반응

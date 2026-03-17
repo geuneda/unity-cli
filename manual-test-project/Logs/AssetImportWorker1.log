@@ -3644,3 +3644,373 @@ Memory consumption went from 132.1 MB to 131.9 MB.
 Total: 3.486916 ms (FindLiveObjects: 0.065709 ms CreateObjectMapping: 0.020375 ms MarkObjects: 3.257667 ms  DeleteObjects: 0.142750 ms)
 
 Prepare: number of updated asset objects reloaded= 0
+========================================================================
+Received Prepare
+Begin MonoManager ReloadAssembly
+[Licensing::Client] Successfully resolved entitlement details
+SocketException: Address already in use
+  at System.Net.Sockets.Socket.Bind (System.Net.EndPoint localEP) [0x00043] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointListener..ctor (System.Net.HttpListener listener, System.Net.IPAddress addr, System.Int32 port, System.Boolean secure) [0x00047] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.GetEPListener (System.String host, System.Int32 port, System.Net.HttpListener listener, System.Boolean secure) [0x0009d] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddPrefixInternal (System.String p, System.Net.HttpListener listener) [0x0005e] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddListener (System.Net.HttpListener listener) [0x0009c] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.HttpListener.Start () [0x0000f] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at UnityCliBridge.UnityCliBridgeServer.Start () [0x00054] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:85 
+  at UnityCliBridge.UnityCliBridgeServer..cctor () [0x002d9] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:65 
+Rethrow as TypeInitializationException: The type initializer for 'UnityCliBridge.UnityCliBridgeServer' threw an exception.
+  at UnityEngine.Application.CallLogCallback (System.String logString, System.String stackTrace, UnityEngine.LogType type, System.Boolean invokedOnMainThread) [0x00030] in /Users/bokken/build/output/unity/unity/Runtime/Export/Application/Application.cs:179 
+
+(Filename: ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs Line: 85)
+
+SocketException: Address already in use
+  at System.Net.Sockets.Socket.Bind (System.Net.EndPoint localEP) [0x00043] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointListener..ctor (System.Net.HttpListener listener, System.Net.IPAddress addr, System.Int32 port, System.Boolean secure) [0x00047] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.GetEPListener (System.String host, System.Int32 port, System.Net.HttpListener listener, System.Boolean secure) [0x0009d] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddPrefixInternal (System.String p, System.Net.HttpListener listener) [0x0005e] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddListener (System.Net.HttpListener listener) [0x0009c] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.HttpListener.Start () [0x0000f] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at UnityCliBridge.UnityCliBridgeServer.Start () [0x00054] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:85 
+  at UnityCliBridge.UnityCliBridgeServer..cctor () [0x002d9] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:65 
+Rethrow as TypeInitializationException: The type initializer for 'UnityCliBridge.UnityCliBridgeServer' threw an exception.
+  at UnityEditor.AssemblyReloadEvents.OnBeforeAssemblyReload () [0x00045] in /Users/bokken/build/output/unity/unity/Editor/Mono/AssemblyReloadEvents.cs:31 
+
+(Filename: ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs Line: 85)
+
+Thread 0x16b697000 may have been prematurely finalized
+Symbol file LoadedFromMemory is not a mono symbol file
+- Loaded All Assemblies, in  0.180 seconds
+Refreshing native plugins compatible for Editor in 0.04 ms, found 0 plugins.
+Native extension for iOS target not found
+Native extension for Android target not found
+Native extension for OSXStandalone target not found
+[Package Manager] Failed to launch server process. Reason: Unity was launched with the -noUpm command-line argument
+[Package Manager] Unable to send message (not connected to server process).
+[Package Manager] Cannot connect to Unity Package Manager local server
+SocketException: Address already in use
+  at System.Net.Sockets.Socket.Bind (System.Net.EndPoint localEP) [0x00043] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointListener..ctor (System.Net.HttpListener listener, System.Net.IPAddress addr, System.Int32 port, System.Boolean secure) [0x00047] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.GetEPListener (System.String host, System.Int32 port, System.Net.HttpListener listener, System.Boolean secure) [0x0009d] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddPrefixInternal (System.String p, System.Net.HttpListener listener) [0x0005e] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddListener (System.Net.HttpListener listener) [0x0009c] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.HttpListener.Start () [0x0000f] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at UnityCliBridge.UnityCliBridgeServer.Start () [0x00054] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:85 
+  at UnityCliBridge.UnityCliBridgeServer..cctor () [0x002d9] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:65 
+Rethrow as TypeInitializationException: The type initializer for 'UnityCliBridge.UnityCliBridgeServer' threw an exception.
+  at UnityEngine.Application.CallLogCallback (System.String logString, System.String stackTrace, UnityEngine.LogType type, System.Boolean invokedOnMainThread) [0x00030] in /Users/bokken/build/output/unity/unity/Runtime/Export/Application/Application.cs:179 
+UnityEngine.DebugLogHandler:Internal_Log_Injected(LogType, LogOption, ManagedSpanWrapper&, IntPtr)
+UnityEngine.DebugLogHandler:Internal_Log(LogType, LogOption, String, Object)
+UnityEngine.DebugLogHandler:LogFormat(LogType, Object, String, Object[])
+UnityEngine.Logger:Log(LogType, Object)
+UnityEngine.Debug:LogError(Object)
+UnityEditor.EditorAssemblies:ProcessInitializeOnLoadAttributes(Type[]) (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorAssemblies.cs:132)
+
+(Filename: /Users/bokken/build/output/unity/unity/Editor/Mono/EditorAssemblies.cs Line: 132)
+
+System.Net.Sockets.SocketException (0x80004005): Address already in use
+  at System.Net.Sockets.Socket.Bind (System.Net.EndPoint localEP) [0x00043] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointListener..ctor (System.Net.HttpListener listener, System.Net.IPAddress addr, System.Int32 port, System.Boolean secure) [0x00047] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.GetEPListener (System.String host, System.Int32 port, System.Net.HttpListener listener, System.Boolean secure) [0x0009d] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddPrefixInternal (System.String p, System.Net.HttpListener listener) [0x0005e] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddListener (System.Net.HttpListener listener) [0x0009c] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.HttpListener.Start () [0x0000f] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at UnityCliBridge.UnityCliBridgeServer.Start () [0x00054] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:85 
+  at UnityCliBridge.UnityCliBridgeServer..cctor () [0x002d9] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:65 
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:LogError (object)
+UnityEditor.EditorAssemblies:ProcessInitializeOnLoadAttributes (System.Type[]) (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorAssemblies.cs:132)
+
+(Filename: /Users/bokken/build/output/unity/unity/Editor/Mono/EditorAssemblies.cs Line: 132)
+
+ScheduleIndexationOnStartup MainProcess:False IndexOnStartup:True
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.216 seconds
+Domain Reload Profiling: 397ms
+	BeginReloadAssembly (68ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (3ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (13ms)
+	RebuildCommonClasses (18ms)
+	RebuildNativeTypeToScriptingClass (7ms)
+	initialDomainReloadingComplete (9ms)
+	LoadAllAssembliesAndSetupDomain (79ms)
+		LoadAssemblies (85ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (20ms)
+			TypeCache.Refresh (3ms)
+				TypeCache.ScanAssembly (0ms)
+			BuildScriptInfoCaches (14ms)
+			ResolveRequiredComponents (1ms)
+	FinalizeReload (216ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (167ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (7ms)
+			SetLoadedEditorAssemblies (1ms)
+			BeforeProcessingInitializeOnLoad (47ms)
+			ProcessInitializeOnLoadAttributes (93ms)
+			ProcessInitializeOnLoadMethodAttributes (18ms)
+			AfterProcessingInitializeOnLoad (1ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (1ms)
+Refreshing native plugins compatible for Editor in 0.08 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1222 unused Assets / (46.3 KB). Loaded Objects now: 1821.
+Memory consumption went from 133.9 MB to 133.8 MB.
+Total: 3.611084 ms (FindLiveObjects: 0.072542 ms CreateObjectMapping: 0.020792 ms MarkObjects: 3.391000 ms  DeleteObjects: 0.126625 ms)
+
+Prepare: number of updated asset objects reloaded= 0
+========================================================================
+Received Prepare
+Begin MonoManager ReloadAssembly
+SocketException: Address already in use
+  at System.Net.Sockets.Socket.Bind (System.Net.EndPoint localEP) [0x00043] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointListener..ctor (System.Net.HttpListener listener, System.Net.IPAddress addr, System.Int32 port, System.Boolean secure) [0x00047] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.GetEPListener (System.String host, System.Int32 port, System.Net.HttpListener listener, System.Boolean secure) [0x0009d] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddPrefixInternal (System.String p, System.Net.HttpListener listener) [0x0005e] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddListener (System.Net.HttpListener listener) [0x0009c] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.HttpListener.Start () [0x0000f] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at UnityCliBridge.UnityCliBridgeServer.Start () [0x00054] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:85 
+  at UnityCliBridge.UnityCliBridgeServer..cctor () [0x002d9] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:65 
+Rethrow as TypeInitializationException: The type initializer for 'UnityCliBridge.UnityCliBridgeServer' threw an exception.
+  at UnityEngine.Application.CallLogCallback (System.String logString, System.String stackTrace, UnityEngine.LogType type, System.Boolean invokedOnMainThread) [0x00030] in /Users/bokken/build/output/unity/unity/Runtime/Export/Application/Application.cs:179 
+
+(Filename: ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs Line: 85)
+
+SocketException: Address already in use
+  at System.Net.Sockets.Socket.Bind (System.Net.EndPoint localEP) [0x00043] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointListener..ctor (System.Net.HttpListener listener, System.Net.IPAddress addr, System.Int32 port, System.Boolean secure) [0x00047] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.GetEPListener (System.String host, System.Int32 port, System.Net.HttpListener listener, System.Boolean secure) [0x0009d] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddPrefixInternal (System.String p, System.Net.HttpListener listener) [0x0005e] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddListener (System.Net.HttpListener listener) [0x0009c] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.HttpListener.Start () [0x0000f] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at UnityCliBridge.UnityCliBridgeServer.Start () [0x00054] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:85 
+  at UnityCliBridge.UnityCliBridgeServer..cctor () [0x002d9] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:65 
+Rethrow as TypeInitializationException: The type initializer for 'UnityCliBridge.UnityCliBridgeServer' threw an exception.
+  at UnityEditor.AssemblyReloadEvents.OnBeforeAssemblyReload () [0x00045] in /Users/bokken/build/output/unity/unity/Editor/Mono/AssemblyReloadEvents.cs:31 
+
+(Filename: ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs Line: 85)
+
+Thread 0x16b697000 may have been prematurely finalized
+Symbol file LoadedFromMemory is not a mono symbol file
+- Loaded All Assemblies, in  0.169 seconds
+Refreshing native plugins compatible for Editor in 0.04 ms, found 0 plugins.
+Native extension for iOS target not found
+Native extension for Android target not found
+Native extension for OSXStandalone target not found
+[Package Manager] Failed to launch server process. Reason: Unity was launched with the -noUpm command-line argument
+[Package Manager] Unable to send message (not connected to server process).
+[Package Manager] Cannot connect to Unity Package Manager local server
+SocketException: Address already in use
+  at System.Net.Sockets.Socket.Bind (System.Net.EndPoint localEP) [0x00043] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointListener..ctor (System.Net.HttpListener listener, System.Net.IPAddress addr, System.Int32 port, System.Boolean secure) [0x00047] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.GetEPListener (System.String host, System.Int32 port, System.Net.HttpListener listener, System.Boolean secure) [0x0009d] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddPrefixInternal (System.String p, System.Net.HttpListener listener) [0x0005e] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddListener (System.Net.HttpListener listener) [0x0009c] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.HttpListener.Start () [0x0000f] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at UnityCliBridge.UnityCliBridgeServer.Start () [0x00054] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:85 
+  at UnityCliBridge.UnityCliBridgeServer..cctor () [0x002d9] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:65 
+Rethrow as TypeInitializationException: The type initializer for 'UnityCliBridge.UnityCliBridgeServer' threw an exception.
+  at UnityEngine.Application.CallLogCallback (System.String logString, System.String stackTrace, UnityEngine.LogType type, System.Boolean invokedOnMainThread) [0x00030] in /Users/bokken/build/output/unity/unity/Runtime/Export/Application/Application.cs:179 
+UnityEngine.DebugLogHandler:Internal_Log_Injected(LogType, LogOption, ManagedSpanWrapper&, IntPtr)
+UnityEngine.DebugLogHandler:Internal_Log(LogType, LogOption, String, Object)
+UnityEngine.DebugLogHandler:LogFormat(LogType, Object, String, Object[])
+UnityEngine.Logger:Log(LogType, Object)
+UnityEngine.Debug:LogError(Object)
+UnityEditor.EditorAssemblies:ProcessInitializeOnLoadAttributes(Type[]) (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorAssemblies.cs:132)
+
+(Filename: /Users/bokken/build/output/unity/unity/Editor/Mono/EditorAssemblies.cs Line: 132)
+
+System.Net.Sockets.SocketException (0x80004005): Address already in use
+  at System.Net.Sockets.Socket.Bind (System.Net.EndPoint localEP) [0x00043] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointListener..ctor (System.Net.HttpListener listener, System.Net.IPAddress addr, System.Int32 port, System.Boolean secure) [0x00047] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.GetEPListener (System.String host, System.Int32 port, System.Net.HttpListener listener, System.Boolean secure) [0x0009d] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddPrefixInternal (System.String p, System.Net.HttpListener listener) [0x0005e] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddListener (System.Net.HttpListener listener) [0x0009c] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.HttpListener.Start () [0x0000f] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at UnityCliBridge.UnityCliBridgeServer.Start () [0x00054] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:85 
+  at UnityCliBridge.UnityCliBridgeServer..cctor () [0x002d9] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:65 
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:LogError (object)
+UnityEditor.EditorAssemblies:ProcessInitializeOnLoadAttributes (System.Type[]) (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorAssemblies.cs:132)
+
+(Filename: /Users/bokken/build/output/unity/unity/Editor/Mono/EditorAssemblies.cs Line: 132)
+
+ScheduleIndexationOnStartup MainProcess:False IndexOnStartup:True
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.218 seconds
+Domain Reload Profiling: 388ms
+	BeginReloadAssembly (69ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (3ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (13ms)
+	RebuildCommonClasses (19ms)
+	RebuildNativeTypeToScriptingClass (7ms)
+	initialDomainReloadingComplete (9ms)
+	LoadAllAssembliesAndSetupDomain (67ms)
+		LoadAssemblies (75ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (19ms)
+			TypeCache.Refresh (3ms)
+				TypeCache.ScanAssembly (0ms)
+			BuildScriptInfoCaches (14ms)
+			ResolveRequiredComponents (1ms)
+	FinalizeReload (218ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (167ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (7ms)
+			SetLoadedEditorAssemblies (2ms)
+			BeforeProcessingInitializeOnLoad (47ms)
+			ProcessInitializeOnLoadAttributes (94ms)
+			ProcessInitializeOnLoadMethodAttributes (17ms)
+			AfterProcessingInitializeOnLoad (1ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (1ms)
+Refreshing native plugins compatible for Editor in 0.06 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1222 unused Assets / (184.8 KB). Loaded Objects now: 1821.
+Memory consumption went from 135.9 MB to 135.7 MB.
+Total: 3.159458 ms (FindLiveObjects: 0.063708 ms CreateObjectMapping: 0.018708 ms MarkObjects: 2.943792 ms  DeleteObjects: 0.132959 ms)
+
+Prepare: number of updated asset objects reloaded= 0
+========================================================================
+Received Prepare
+Begin MonoManager ReloadAssembly
+SocketException: Address already in use
+  at System.Net.Sockets.Socket.Bind (System.Net.EndPoint localEP) [0x00043] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointListener..ctor (System.Net.HttpListener listener, System.Net.IPAddress addr, System.Int32 port, System.Boolean secure) [0x00047] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.GetEPListener (System.String host, System.Int32 port, System.Net.HttpListener listener, System.Boolean secure) [0x0009d] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddPrefixInternal (System.String p, System.Net.HttpListener listener) [0x0005e] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddListener (System.Net.HttpListener listener) [0x0009c] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.HttpListener.Start () [0x0000f] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at UnityCliBridge.UnityCliBridgeServer.Start () [0x00054] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:85 
+  at UnityCliBridge.UnityCliBridgeServer..cctor () [0x002d9] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:65 
+Rethrow as TypeInitializationException: The type initializer for 'UnityCliBridge.UnityCliBridgeServer' threw an exception.
+  at UnityEngine.Application.CallLogCallback (System.String logString, System.String stackTrace, UnityEngine.LogType type, System.Boolean invokedOnMainThread) [0x00030] in /Users/bokken/build/output/unity/unity/Runtime/Export/Application/Application.cs:179 
+
+(Filename: ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs Line: 85)
+
+SocketException: Address already in use
+  at System.Net.Sockets.Socket.Bind (System.Net.EndPoint localEP) [0x00043] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointListener..ctor (System.Net.HttpListener listener, System.Net.IPAddress addr, System.Int32 port, System.Boolean secure) [0x00047] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.GetEPListener (System.String host, System.Int32 port, System.Net.HttpListener listener, System.Boolean secure) [0x0009d] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddPrefixInternal (System.String p, System.Net.HttpListener listener) [0x0005e] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddListener (System.Net.HttpListener listener) [0x0009c] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.HttpListener.Start () [0x0000f] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at UnityCliBridge.UnityCliBridgeServer.Start () [0x00054] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:85 
+  at UnityCliBridge.UnityCliBridgeServer..cctor () [0x002d9] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:65 
+Rethrow as TypeInitializationException: The type initializer for 'UnityCliBridge.UnityCliBridgeServer' threw an exception.
+  at UnityEditor.AssemblyReloadEvents.OnBeforeAssemblyReload () [0x00045] in /Users/bokken/build/output/unity/unity/Editor/Mono/AssemblyReloadEvents.cs:31 
+
+(Filename: ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs Line: 85)
+
+Thread 0x16b697000 may have been prematurely finalized
+Symbol file LoadedFromMemory is not a mono symbol file
+- Loaded All Assemblies, in  0.176 seconds
+Refreshing native plugins compatible for Editor in 0.04 ms, found 0 plugins.
+Native extension for iOS target not found
+Native extension for Android target not found
+Native extension for OSXStandalone target not found
+[Package Manager] Failed to launch server process. Reason: Unity was launched with the -noUpm command-line argument
+[Package Manager] Unable to send message (not connected to server process).
+[Package Manager] Cannot connect to Unity Package Manager local server
+SocketException: Address already in use
+  at System.Net.Sockets.Socket.Bind (System.Net.EndPoint localEP) [0x00043] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointListener..ctor (System.Net.HttpListener listener, System.Net.IPAddress addr, System.Int32 port, System.Boolean secure) [0x00047] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.GetEPListener (System.String host, System.Int32 port, System.Net.HttpListener listener, System.Boolean secure) [0x0009d] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddPrefixInternal (System.String p, System.Net.HttpListener listener) [0x0005e] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddListener (System.Net.HttpListener listener) [0x0009c] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.HttpListener.Start () [0x0000f] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at UnityCliBridge.UnityCliBridgeServer.Start () [0x00054] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:85 
+  at UnityCliBridge.UnityCliBridgeServer..cctor () [0x002d9] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:65 
+Rethrow as TypeInitializationException: The type initializer for 'UnityCliBridge.UnityCliBridgeServer' threw an exception.
+  at UnityEngine.Application.CallLogCallback (System.String logString, System.String stackTrace, UnityEngine.LogType type, System.Boolean invokedOnMainThread) [0x00030] in /Users/bokken/build/output/unity/unity/Runtime/Export/Application/Application.cs:179 
+UnityEngine.DebugLogHandler:Internal_Log_Injected(LogType, LogOption, ManagedSpanWrapper&, IntPtr)
+UnityEngine.DebugLogHandler:Internal_Log(LogType, LogOption, String, Object)
+UnityEngine.DebugLogHandler:LogFormat(LogType, Object, String, Object[])
+UnityEngine.Logger:Log(LogType, Object)
+UnityEngine.Debug:LogError(Object)
+UnityEditor.EditorAssemblies:ProcessInitializeOnLoadAttributes(Type[]) (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorAssemblies.cs:132)
+
+(Filename: /Users/bokken/build/output/unity/unity/Editor/Mono/EditorAssemblies.cs Line: 132)
+
+System.Net.Sockets.SocketException (0x80004005): Address already in use
+  at System.Net.Sockets.Socket.Bind (System.Net.EndPoint localEP) [0x00043] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointListener..ctor (System.Net.HttpListener listener, System.Net.IPAddress addr, System.Int32 port, System.Boolean secure) [0x00047] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.GetEPListener (System.String host, System.Int32 port, System.Net.HttpListener listener, System.Boolean secure) [0x0009d] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddPrefixInternal (System.String p, System.Net.HttpListener listener) [0x0005e] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.EndPointManager.AddListener (System.Net.HttpListener listener) [0x0009c] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at System.Net.HttpListener.Start () [0x0000f] in <e312637755254ec3aaf4851c4dc24af6>:0 
+  at UnityCliBridge.UnityCliBridgeServer.Start () [0x00054] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:85 
+  at UnityCliBridge.UnityCliBridgeServer..cctor () [0x002d9] in ./Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs:65 
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:LogError (object)
+UnityEditor.EditorAssemblies:ProcessInitializeOnLoadAttributes (System.Type[]) (at /Users/bokken/build/output/unity/unity/Editor/Mono/EditorAssemblies.cs:132)
+
+(Filename: /Users/bokken/build/output/unity/unity/Editor/Mono/EditorAssemblies.cs Line: 132)
+
+ScheduleIndexationOnStartup MainProcess:False IndexOnStartup:True
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.220 seconds
+Domain Reload Profiling: 397ms
+	BeginReloadAssembly (67ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (3ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (13ms)
+	RebuildCommonClasses (19ms)
+	RebuildNativeTypeToScriptingClass (7ms)
+	initialDomainReloadingComplete (9ms)
+	LoadAllAssembliesAndSetupDomain (75ms)
+		LoadAssemblies (79ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (23ms)
+			TypeCache.Refresh (3ms)
+				TypeCache.ScanAssembly (0ms)
+			BuildScriptInfoCaches (17ms)
+			ResolveRequiredComponents (1ms)
+	FinalizeReload (220ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (168ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (8ms)
+			SetLoadedEditorAssemblies (1ms)
+			BeforeProcessingInitializeOnLoad (51ms)
+			ProcessInitializeOnLoadAttributes (91ms)
+			ProcessInitializeOnLoadMethodAttributes (16ms)
+			AfterProcessingInitializeOnLoad (1ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (1ms)
+Refreshing native plugins compatible for Editor in 0.08 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1222 unused Assets / (135.0 KB). Loaded Objects now: 1821.
+Memory consumption went from 137.9 MB to 137.8 MB.
+Total: 3.830625 ms (FindLiveObjects: 0.071042 ms CreateObjectMapping: 0.019875 ms MarkObjects: 3.607583 ms  DeleteObjects: 0.131792 ms)
+
+Prepare: number of updated asset objects reloaded= 0

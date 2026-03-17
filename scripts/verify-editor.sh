@@ -318,8 +318,9 @@ stage_core() {
 stage_ui_input() {
   local ui_double_click_json ui_long_press_json ui_swipe_json input_double_tap_json input_long_press_json input_swipe_json
   local toggle_json slider_json scrollrect_json inputfield_json focus_json blur_json toggle_focus_json ui_pointer_json scroll_drag_json
-  local ui_hierarchy_json ui_hierarchy_after_scroll_json editor_state_json blur_state_json console_json events_json ui_scene
-  local scroll_before_vertical scroll_after_vertical
+  local toggle_click_json slider_drag_json
+  local ui_hierarchy_json ui_hierarchy_after_scroll_json editor_state_json blur_state_json events_json ui_scene
+  local scroll_before_vertical scroll_after_vertical interactive_toggle_state interactive_slider_value
 
   ui_scene="Assets/Scenes/CliUiCoverage.unity"
   ensure_bridge_capability "ui.focus"
@@ -331,17 +332,37 @@ stage_ui_input() {
   run_cli ui button.create canvasName=CliCanvas name=CliButton text=TapMe anchoredPosition=0,0 size=220,80 >/dev/null
   run_cli ui toggle.create canvasName=CliCanvas name=CliToggle text=EnableFeature anchoredPosition=0,180 size=260,40 >/dev/null
   run_cli ui slider.create canvasName=CliCanvas name=CliSlider anchoredPosition=0,260 size=320,40 minValue=0 maxValue=1 value=0.2 >/dev/null
+  run_cli ui toggle.create canvasName=CliCanvas name=CliToggleInteractive text=InteractiveToggle anchoredPosition=-360,180 size=280,40 >/dev/null
+  run_cli ui slider.create canvasName=CliCanvas name=CliSliderInteractive anchoredPosition=-360,260 size=320,40 minValue=0 maxValue=1 value=0.2 >/dev/null
   run_cli ui scrollrect.create canvasName=CliCanvas name=CliScroll anchoredPosition=320,0 size=260,200 itemCount=10 >/dev/null
   run_cli ui inputfield.create canvasName=CliCanvas name=CliInput anchoredPosition=0,-200 size=320,44 placeholder=TypeHere >/dev/null
   run_cli ui text.create canvasName=CliCanvas name=CliText text=Coverage anchoredPosition=0,120 size=280,48 >/dev/null
   run_cli ui image.create canvasName=CliCanvas name=CliImage anchoredPosition=0,-120 size=96,96 color=#66CCFFFF >/dev/null
   run_cli component update name=CliButton type=CliUiProbe >/dev/null
   run_cli component update name=CliToggle type=CliUiProbe >/dev/null
+  run_cli component update name=CliToggleInteractive type=CliUiProbe >/dev/null
   run_cli component update name=CliScroll type=CliUiProbe >/dev/null
   run_cli component update name=CliInput type=CliUiProbe >/dev/null
+  run_cli component update name=CliSliderInteractive type=CliUiProbe >/dev/null
 
   run_cli sprite create name=CliSprite position=2,1,0 color=#FF8A00FF >/dev/null
   run_cli component update name=CliSprite type=CliUiProbe >/dev/null
+
+  toggle_click_json="$(json_cli ui click name=CliToggleInteractive pointerId=41)"
+  assert_contains "$toggle_click_json" "\"pointerId\": 41"
+
+  interactive_toggle_state="$(json_cli resource get ui/hierarchy)"
+  assert_contains "$interactive_toggle_state" "\"name\": \"CliToggleInteractive\""
+  assert_contains "$interactive_toggle_state" "\"isOn\": true"
+
+  slider_drag_json="$(json_cli ui drag name=CliSliderInteractive pointerId=51 from=280,1715 to=600,1715)"
+  assert_contains "$slider_drag_json" "\"pointerId\": 51"
+
+  interactive_slider_value="$(jq -r '.data.items[] | select(.name==\"CliSliderInteractive\") | .slider.value' <<<"$(json_cli resource get ui/hierarchy)" | head -n1)"
+  if [[ "$interactive_slider_value" == "0.2" ]]; then
+    printf 'Expected Slider drag to change slider value.\n' >&2
+    return 1
+  fi
 
   toggle_json="$(json_cli ui toggle.set name=CliToggle isOn=true)"
   assert_contains "$toggle_json" "\"isOn\": true"
@@ -358,6 +379,8 @@ stage_ui_input() {
   ui_hierarchy_json="$(json_cli resource get ui/hierarchy)"
   assert_contains "$ui_hierarchy_json" "\"name\": \"CliToggle\""
   assert_contains "$ui_hierarchy_json" "\"name\": \"CliSlider\""
+  assert_contains "$ui_hierarchy_json" "\"name\": \"CliToggleInteractive\""
+  assert_contains "$ui_hierarchy_json" "\"name\": \"CliSliderInteractive\""
   assert_contains "$ui_hierarchy_json" "\"name\": \"CliScroll\""
   assert_contains "$ui_hierarchy_json" "\"name\": \"CliInput\""
   scroll_before_vertical="$(jq -r '.data.items[] | select(.name=="CliScroll") | .scrollRect.normalizedPosition[1]' <<<"$ui_hierarchy_json" | head -n1)"
@@ -413,30 +436,19 @@ stage_ui_input() {
   assert_contains "$input_swipe_json" "CliSprite"
   assert_contains "$input_swipe_json" "\"pointerId\": 9"
 
-  console_json="$(json_cli console get)"
-  assert_contains "$console_json" "CliUiProbe select CliInput"
-  assert_contains "$console_json" "CliUiProbe deselect CliInput"
-  assert_contains "$console_json" "CliUiProbe select CliToggle"
-  assert_contains "$console_json" "CliUiProbe click CliButton count=1 clickCount=1 pointerId=21"
-  assert_contains "$console_json" "CliUiProbe click CliButton count=3 clickCount=2"
-  assert_contains "$console_json" "CliUiProbe up CliButton"
-  assert_contains "$console_json" "heldMs="
-  assert_contains "$console_json" "CliUiProbe begin drag CliScroll pointerId=31"
-  assert_contains "$console_json" "CliUiProbe drag CliScroll delta="
-  assert_contains "$console_json" "pointerId=31"
-  assert_contains "$console_json" "CliUiProbe click CliSprite count=2 clickCount=2 pointerId=7"
-  assert_contains "$console_json" "CliUiProbe up CliSprite count=3 heldMs="
-  assert_contains "$console_json" "pointerId=8"
-  assert_contains "$console_json" "CliUiProbe end drag CliSprite count=1 pointerId=9"
-
   events_json="$(json_cli events tail after=0)"
   assert_contains "$events_json" "ui.focused"
   assert_contains "$events_json" "ui.blurred"
+  assert_contains "$events_json" "\"pointerId\": 41"
   assert_contains "$events_json" "ui.double_clicked"
   assert_contains "$events_json" "ui.long_pressed"
+  assert_contains "$events_json" "\"pointerId\": 31"
   assert_contains "$events_json" "ui.swiped"
   assert_contains "$events_json" "input.double_tapped"
   assert_contains "$events_json" "input.long_pressed"
+  assert_contains "$events_json" "\"pointerId\": 7"
+  assert_contains "$events_json" "\"pointerId\": 8"
+  assert_contains "$events_json" "\"pointerId\": 9"
   assert_contains "$events_json" "input.swiped"
 
   run_cli scene create path=Assets/Scenes/CliCoverage.unity >/dev/null

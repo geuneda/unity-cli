@@ -1,11 +1,11 @@
 [
   {
-    "RunId": "d93a72dd84a74817aa21ec8621a28132",
+    "RunId": "38ae1e7a37ec46e0bff8ed7fa5c9e071",
     "Mode": "PlayMode",
     "RequestedNames": [],
-    "OriginSessionId": "a658bee1af6e44a48c1d8d4ff66fa5d6",
-    "RequestedAt": "2026-03-17T06:41:15.9973150+00:00",
-    "CompletedAt": "2026-03-17T06:41:21.5695640+00:00",
+    "OriginSessionId": "497b7b44c3aa44d4b818e453b35c7be2",
+    "RequestedAt": "2026-03-17T06:52:17.0344650+00:00",
+    "CompletedAt": "2026-03-17T06:52:23.3374480+00:00",
     "Started": true,
     "Count": 1,
     "Completed": true,
@@ -17,12 +17,12 @@
       "failed": 0,
       "skipped": 0,
       "inconclusive": 0,
-      "durationSeconds": 0.0264759,
+      "durationSeconds": 0.025018,
       "tests": [
         {
           "name": "UnityCliPlayModeTests.CreatedObjectRemainsAvailableAcrossAFrame",
           "status": "Passed",
-          "durationSeconds": 0.0104039,
+          "durationSeconds": 0.0092784,
           "message": ""
         }
       ]
