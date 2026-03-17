@@ -206,3 +206,29 @@ scripts/verify-editor.sh --stage ui-input --report reports/verify-editor/ui-inpu
 
 - 아직 제한이 남아 있음:
   - `mock serve` 는 실기능 검증 경로가 아니라 CLI 회귀 테스트용입니다.
+
+## Claude Code 스킬
+
+`skill/` 디렉토리에 Claude Code용 스킬이 포함되어 있습니다. 이 스킬을 설치하면 Claude Code에서 unity-cli의 모든 명령을 자연어로 요청할 수 있습니다.
+
+### 설치
+
+```bash
+# 스킬 디렉토리를 Claude Code 스킬 경로에 복사
+cp -r skill ~/.claude/skills/unity-cli
+```
+
+또는 `.claude/settings.json`에 직접 추가:
+
+```json
+{
+  "skills": [
+    "/path/to/unity-cli/skill"
+  ]
+}
+```
+
+### 포함 내용
+
+- `skill/SKILL.md` -- 스킬 메타데이터 및 사용 가이드
+- `skill/references/commands.md` -- 전체 명령 레퍼런스 (그룹별 인자, 예시 포함)
