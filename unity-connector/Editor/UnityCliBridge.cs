@@ -47,8 +47,10 @@ public static class UnityCliBridgeServer
         "package.list", "package.add",
         "tests.list", "tests.run",
         "console.get", "console.clear", "console.send",
-        "ui.canvas.create", "ui.button.create", "ui.text.create", "ui.image.create", "ui.click", "ui.drag",
-        "input.tap", "input.drag",
+        "ui.canvas.create", "ui.button.create", "ui.text.create", "ui.image.create", "ui.toggle.create", "ui.slider.create", "ui.scrollrect.create", "ui.inputfield.create",
+        "ui.toggle.set", "ui.slider.set", "ui.scrollrect.set", "ui.inputfield.set-text",
+        "ui.click", "ui.double-click", "ui.long-press", "ui.drag", "ui.swipe",
+        "input.tap", "input.double-tap", "input.long-press", "input.drag", "input.swipe",
         "menu.execute",
         "editor.play", "editor.stop", "editor.pause", "editor.refresh", "editor.compile"
     };
@@ -165,7 +167,7 @@ public static class UnityCliBridgeServer
                 {
                     tools = ToolNames,
                     resources = new[] { "editor/state", "scene/active", "scene/hierarchy", "ui/hierarchy", "console/logs", "tests/catalog", "packages/list" },
-                    events = new[] { "scene.changed", "hierarchy.changed", "selection.changed", "component.changed", "asset.changed", "package.changed", "tests.started", "tests.completed", "console.log", "ui.clicked", "ui.dragged", "input.tapped", "input.dragged", "editor.play_mode_changed", "editor.pause_changed", "editor.refreshed", "editor.compilation_started", "editor.compiled", "menu.executed" },
+                    events = new[] { "scene.changed", "hierarchy.changed", "selection.changed", "component.changed", "asset.changed", "package.changed", "tests.started", "tests.completed", "console.log", "ui.clicked", "ui.double_clicked", "ui.long_pressed", "ui.dragged", "ui.swiped", "input.tapped", "input.double_tapped", "input.long_pressed", "input.dragged", "input.swiped", "editor.play_mode_changed", "editor.pause_changed", "editor.refreshed", "editor.compilation_started", "editor.compiled", "menu.executed" },
                     metadata = new Dictionary<string, string> { ["transport"] = "http", ["unity"] = Application.unityVersion },
                 });
                 return;
@@ -545,6 +547,30 @@ public static class UnityCliBridgeServer
                 Emit("hierarchy.changed", $"Button created: {button.name}", new JObject { ["id"] = button.GetInstanceID(), ["name"] = button.name });
                 return Success(GameObjectObject(button), "Button created.");
             }),
+            "ui.toggle.create" => await OnMainThreadAsync(() =>
+            {
+                var toggle = CreateToggle(arguments);
+                Emit("hierarchy.changed", $"Toggle created: {toggle.name}", new JObject { ["id"] = toggle.GetInstanceID(), ["name"] = toggle.name });
+                return Success(UiObject(toggle), "Toggle created.");
+            }),
+            "ui.slider.create" => await OnMainThreadAsync(() =>
+            {
+                var slider = CreateSlider(arguments);
+                Emit("hierarchy.changed", $"Slider created: {slider.name}", new JObject { ["id"] = slider.GetInstanceID(), ["name"] = slider.name });
+                return Success(UiObject(slider), "Slider created.");
+            }),
+            "ui.scrollrect.create" => await OnMainThreadAsync(() =>
+            {
+                var scrollRect = CreateScrollRect(arguments);
+                Emit("hierarchy.changed", $"ScrollRect created: {scrollRect.name}", new JObject { ["id"] = scrollRect.GetInstanceID(), ["name"] = scrollRect.name });
+                return Success(UiObject(scrollRect), "ScrollRect created.");
+            }),
+            "ui.inputfield.create" => await OnMainThreadAsync(() =>
+            {
+                var inputField = CreateInputField(arguments);
+                Emit("hierarchy.changed", $"InputField created: {inputField.name}", new JObject { ["id"] = inputField.GetInstanceID(), ["name"] = inputField.name });
+                return Success(UiObject(inputField), "InputField created.");
+            }),
             "ui.text.create" => await OnMainThreadAsync(() =>
             {
                 var text = CreateText(arguments);
@@ -557,21 +583,89 @@ public static class UnityCliBridgeServer
                 Emit("hierarchy.changed", $"Image created: {image.name}", new JObject { ["id"] = image.GetInstanceID(), ["name"] = image.name });
                 return Success(GameObjectObject(image), "Image created.");
             }),
+            "ui.toggle.set" => await OnMainThreadAsync(() =>
+            {
+                var toggle = FindGameObject(arguments).GetComponent<Toggle>() ?? throw new InvalidOperationException("Toggle component was not found.");
+                toggle.isOn = arguments["isOn"]?.Value<bool?>() ?? toggle.isOn;
+                Emit("component.changed", $"Toggle changed: {toggle.gameObject.name}", new JObject { ["id"] = toggle.gameObject.GetInstanceID(), ["isOn"] = toggle.isOn });
+                return Success(UiObject(toggle.gameObject), "Toggle updated.");
+            }),
+            "ui.slider.set" => await OnMainThreadAsync(() =>
+            {
+                var slider = FindGameObject(arguments).GetComponent<Slider>() ?? throw new InvalidOperationException("Slider component was not found.");
+                slider.value = arguments["value"]?.Value<float?>() ?? slider.value;
+                Emit("component.changed", $"Slider changed: {slider.gameObject.name}", new JObject { ["id"] = slider.gameObject.GetInstanceID(), ["value"] = slider.value });
+                return Success(UiObject(slider.gameObject), "Slider updated.");
+            }),
+            "ui.scrollrect.set" => await OnMainThreadAsync(() =>
+            {
+                var scrollRect = FindGameObject(arguments).GetComponent<ScrollRect>() ?? throw new InvalidOperationException("ScrollRect component was not found.");
+                if (arguments["normalizedPosition"] is JArray normalizedPositionValues)
+                {
+                    scrollRect.normalizedPosition = ParseVector2(normalizedPositionValues, scrollRect.normalizedPosition);
+                }
+                else
+                {
+                    var horizontal = arguments["horizontalNormalizedPosition"]?.Value<float?>();
+                    var vertical = arguments["verticalNormalizedPosition"]?.Value<float?>();
+                    scrollRect.normalizedPosition = new Vector2(horizontal ?? scrollRect.horizontalNormalizedPosition, vertical ?? scrollRect.verticalNormalizedPosition);
+                }
+
+                scrollRect.StopMovement();
+                Emit("component.changed", $"ScrollRect changed: {scrollRect.gameObject.name}", new JObject
+                {
+                    ["id"] = scrollRect.gameObject.GetInstanceID(),
+                    ["normalizedPosition"] = new JArray(scrollRect.normalizedPosition.x, scrollRect.normalizedPosition.y),
+                });
+                return Success(UiObject(scrollRect.gameObject), "ScrollRect updated.");
+            }),
+            "ui.inputfield.set-text" => await OnMainThreadAsync(() =>
+            {
+                var inputField = FindGameObject(arguments).GetComponent<InputField>() ?? throw new InvalidOperationException("InputField component was not found.");
+                inputField.text = arguments.Value<string>("text") ?? string.Empty;
+                inputField.MoveTextEnd(false);
+                Emit("component.changed", $"InputField changed: {inputField.gameObject.name}", new JObject { ["id"] = inputField.gameObject.GetInstanceID(), ["text"] = inputField.text });
+                return Success(UiObject(inputField.gameObject), "InputField updated.");
+            }),
             "ui.click" => await OnMainThreadAsync(() =>
             {
                 return Success(DispatchTap(arguments, "ui.clicked", uiOnly: true), "UI click dispatched.");
+            }),
+            "ui.double-click" => await OnMainThreadAsync(() =>
+            {
+                return Success(DispatchDoubleTap(arguments, "ui.double_clicked", uiOnly: true), "UI double click dispatched.");
+            }),
+            "ui.long-press" => await OnMainThreadAsync(() =>
+            {
+                return Success(DispatchLongPress(arguments, "ui.long_pressed", uiOnly: true), "UI long press dispatched.");
             }),
             "ui.drag" => await OnMainThreadAsync(() =>
             {
                 return Success(DispatchDrag(arguments, "ui.dragged", uiOnly: true), "UI drag dispatched.");
             }),
+            "ui.swipe" => await OnMainThreadAsync(() =>
+            {
+                return Success(DispatchDrag(arguments, "ui.swiped", uiOnly: true), "UI swipe dispatched.");
+            }),
             "input.tap" => await OnMainThreadAsync(() =>
             {
                 return Success(DispatchTap(arguments, "input.tapped", uiOnly: false), "Input tap dispatched.");
             }),
+            "input.double-tap" => await OnMainThreadAsync(() =>
+            {
+                return Success(DispatchDoubleTap(arguments, "input.double_tapped", uiOnly: false), "Input double tap dispatched.");
+            }),
+            "input.long-press" => await OnMainThreadAsync(() =>
+            {
+                return Success(DispatchLongPress(arguments, "input.long_pressed", uiOnly: false), "Input long press dispatched.");
+            }),
             "input.drag" => await OnMainThreadAsync(() =>
             {
                 return Success(DispatchDrag(arguments, "input.dragged", uiOnly: false), "Input drag dispatched.");
+            }),
+            "input.swipe" => await OnMainThreadAsync(() =>
+            {
+                return Success(DispatchDrag(arguments, "input.swiped", uiOnly: false), "Input swipe dispatched.");
             }),
             "menu.execute" => await OnMainThreadAsync(() =>
             {
@@ -696,9 +790,58 @@ public static class UnityCliBridgeServer
     private static JObject UiObject(GameObject gameObject)
     {
         var result = GameObjectObject(gameObject);
-        result["isCanvas"] = gameObject.GetComponent<Canvas>() != null;
-        result["isSelectable"] = gameObject.GetComponent<Selectable>() != null;
-        result["text"] = gameObject.GetComponent<Text>() != null ? gameObject.GetComponent<Text>().text : null;
+        var canvas = gameObject.GetComponent<Canvas>();
+        var selectable = gameObject.GetComponent<Selectable>();
+        var text = gameObject.GetComponent<Text>();
+        var toggle = gameObject.GetComponent<Toggle>();
+        var slider = gameObject.GetComponent<Slider>();
+        var scrollRect = gameObject.GetComponent<ScrollRect>();
+        var inputField = gameObject.GetComponent<InputField>();
+
+        result["isCanvas"] = canvas != null;
+        result["isSelectable"] = selectable != null;
+        result["selectableType"] = selectable != null ? selectable.GetType().Name : null;
+        result["text"] = text != null ? text.text : null;
+
+        if (toggle != null)
+        {
+            result["toggle"] = new JObject
+            {
+                ["isOn"] = toggle.isOn,
+            };
+        }
+
+        if (slider != null)
+        {
+            result["slider"] = new JObject
+            {
+                ["value"] = slider.value,
+                ["minValue"] = slider.minValue,
+                ["maxValue"] = slider.maxValue,
+                ["wholeNumbers"] = slider.wholeNumbers,
+            };
+        }
+
+        if (scrollRect != null)
+        {
+            result["scrollRect"] = new JObject
+            {
+                ["horizontal"] = scrollRect.horizontal,
+                ["vertical"] = scrollRect.vertical,
+                ["normalizedPosition"] = new JArray(scrollRect.normalizedPosition.x, scrollRect.normalizedPosition.y),
+            };
+        }
+
+        if (inputField != null)
+        {
+            result["inputField"] = new JObject
+            {
+                ["text"] = inputField.text,
+                ["interactable"] = inputField.interactable,
+                ["lineType"] = inputField.lineType.ToString(),
+            };
+        }
+
         return result;
     }
 
@@ -1478,6 +1621,158 @@ public static class UnityCliBridgeServer
         return imageObject;
     }
 
+    private static GameObject CreateToggle(JObject arguments)
+    {
+        var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
+        var toggleObject = new GameObject(arguments.Value<string>("name") ?? "Toggle", typeof(RectTransform), typeof(Toggle));
+        toggleObject.transform.SetParent(canvas.transform, false);
+        ApplyRectTransform(toggleObject.GetComponent<RectTransform>(), arguments, new Vector2(240f, 40f));
+
+        var backgroundObject = CreateUiImageChild(toggleObject.transform, "Background", ParseColor(arguments.Value<string>("backgroundColor"), new Color(0.16f, 0.16f, 0.16f, 1f)));
+        ConfigureAnchoredRect(backgroundObject.GetComponent<RectTransform>(), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(24f, 24f), Vector2.zero);
+
+        var checkmarkObject = CreateUiImageChild(backgroundObject.transform, "Checkmark", ParseColor(arguments.Value<string>("checkmarkColor"), new Color(0.2f, 0.8f, 0.35f, 1f)));
+        StretchRect(checkmarkObject.GetComponent<RectTransform>(), new Vector2(4f, 4f), new Vector2(-4f, -4f));
+
+        var labelObject = CreateUiTextChild(toggleObject.transform, "Label", arguments.Value<string>("text") ?? toggleObject.name, ParseColor(arguments.Value<string>("textColor"), Color.white), FontStyle.Normal, TextAnchor.MiddleLeft);
+        StretchRect(labelObject.GetComponent<RectTransform>(), new Vector2(36f, 0f), Vector2.zero);
+
+        var toggle = toggleObject.GetComponent<Toggle>();
+        toggle.targetGraphic = backgroundObject.GetComponent<Image>();
+        toggle.graphic = checkmarkObject.GetComponent<Image>();
+        toggle.isOn = arguments["isOn"]?.Value<bool?>() ?? false;
+        EnsureEventSystem();
+        return toggleObject;
+    }
+
+    private static GameObject CreateSlider(JObject arguments)
+    {
+        var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
+        var sliderObject = new GameObject(arguments.Value<string>("name") ?? "Slider", typeof(RectTransform), typeof(Slider));
+        sliderObject.transform.SetParent(canvas.transform, false);
+        ApplyRectTransform(sliderObject.GetComponent<RectTransform>(), arguments, new Vector2(280f, 40f));
+
+        var backgroundObject = CreateUiImageChild(sliderObject.transform, "Background", ParseColor(arguments.Value<string>("backgroundColor"), new Color(0.16f, 0.16f, 0.16f, 1f)));
+        StretchRect(backgroundObject.GetComponent<RectTransform>(), new Vector2(0f, 12f), new Vector2(0f, -12f));
+
+        var fillAreaObject = new GameObject("Fill Area", typeof(RectTransform));
+        fillAreaObject.transform.SetParent(sliderObject.transform, false);
+        StretchRect(fillAreaObject.GetComponent<RectTransform>(), new Vector2(10f, 12f), new Vector2(-10f, -12f));
+
+        var fillObject = CreateUiImageChild(fillAreaObject.transform, "Fill", ParseColor(arguments.Value<string>("fillColor"), new Color(0.18f, 0.6f, 0.95f, 1f)));
+        StretchRect(fillObject.GetComponent<RectTransform>(), Vector2.zero, Vector2.zero);
+
+        var handleAreaObject = new GameObject("Handle Slide Area", typeof(RectTransform));
+        handleAreaObject.transform.SetParent(sliderObject.transform, false);
+        StretchRect(handleAreaObject.GetComponent<RectTransform>(), new Vector2(10f, 0f), new Vector2(-10f, 0f));
+
+        var handleObject = CreateUiImageChild(handleAreaObject.transform, "Handle", ParseColor(arguments.Value<string>("handleColor"), Color.white));
+        ConfigureAnchoredRect(handleObject.GetComponent<RectTransform>(), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(20f, 20f), Vector2.zero);
+
+        var slider = sliderObject.GetComponent<Slider>();
+        slider.fillRect = fillObject.GetComponent<RectTransform>();
+        slider.handleRect = handleObject.GetComponent<RectTransform>();
+        slider.targetGraphic = handleObject.GetComponent<Image>();
+        slider.direction = Slider.Direction.LeftToRight;
+        slider.minValue = arguments["minValue"]?.Value<float?>() ?? 0f;
+        slider.maxValue = arguments["maxValue"]?.Value<float?>() ?? 1f;
+        slider.wholeNumbers = arguments["wholeNumbers"]?.Value<bool?>() ?? false;
+        slider.value = arguments["value"]?.Value<float?>() ?? slider.minValue;
+        EnsureEventSystem();
+        return sliderObject;
+    }
+
+    private static GameObject CreateScrollRect(JObject arguments)
+    {
+        var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
+        var scrollRectObject = new GameObject(arguments.Value<string>("name") ?? "ScrollRect", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+        scrollRectObject.transform.SetParent(canvas.transform, false);
+        ApplyRectTransform(scrollRectObject.GetComponent<RectTransform>(), arguments, new Vector2(320f, 220f));
+
+        var rootImage = scrollRectObject.GetComponent<Image>();
+        rootImage.color = ParseColor(arguments.Value<string>("backgroundColor"), new Color(0.1f, 0.1f, 0.1f, 0.9f));
+
+        var viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+        viewportObject.transform.SetParent(scrollRectObject.transform, false);
+        StretchRect(viewportObject.GetComponent<RectTransform>(), new Vector2(8f, 8f), new Vector2(-8f, -8f));
+        var viewportImage = viewportObject.GetComponent<Image>();
+        viewportImage.color = ParseColor(arguments.Value<string>("viewportColor"), new Color(0.14f, 0.14f, 0.14f, 0.95f));
+        viewportObject.GetComponent<Mask>().showMaskGraphic = false;
+
+        var contentObject = new GameObject("Content", typeof(RectTransform));
+        contentObject.transform.SetParent(viewportObject.transform, false);
+        var contentRect = contentObject.GetComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0f, 1f);
+        contentRect.anchorMax = new Vector2(1f, 1f);
+        contentRect.pivot = new Vector2(0.5f, 1f);
+
+        var itemCount = Math.Max(arguments["itemCount"]?.Value<int?>() ?? 8, 1);
+        var itemHeight = arguments["itemHeight"]?.Value<float?>() ?? 36f;
+        var contentHeight = itemCount * itemHeight;
+        contentRect.anchoredPosition = Vector2.zero;
+        contentRect.sizeDelta = new Vector2(0f, contentHeight);
+
+        for (var index = 0; index < itemCount; index++)
+        {
+            var itemObject = CreateUiTextChild(contentObject.transform, $"Item {index + 1}", (arguments.Value<string>("itemPrefix") ?? "Item") + " " + (index + 1), ParseColor(arguments.Value<string>("textColor"), Color.white), FontStyle.Normal, TextAnchor.MiddleLeft);
+            var itemRect = itemObject.GetComponent<RectTransform>();
+            itemRect.anchorMin = new Vector2(0f, 1f);
+            itemRect.anchorMax = new Vector2(1f, 1f);
+            itemRect.pivot = new Vector2(0.5f, 1f);
+            itemRect.anchoredPosition = new Vector2(0f, -index * itemHeight);
+            itemRect.sizeDelta = new Vector2(0f, itemHeight);
+        }
+
+        var scrollRect = scrollRectObject.GetComponent<ScrollRect>();
+        scrollRect.viewport = viewportObject.GetComponent<RectTransform>();
+        scrollRect.content = contentRect;
+        scrollRect.horizontal = arguments["horizontal"]?.Value<bool?>() ?? false;
+        scrollRect.vertical = arguments["vertical"]?.Value<bool?>() ?? true;
+        scrollRect.movementType = ScrollRect.MovementType.Clamped;
+
+        if (arguments["normalizedPosition"] is JArray normalizedPositionValues)
+        {
+            scrollRect.normalizedPosition = ParseVector2(normalizedPositionValues, new Vector2(0f, 1f));
+        }
+        else
+        {
+            scrollRect.normalizedPosition = new Vector2(arguments["horizontalNormalizedPosition"]?.Value<float?>() ?? 0f, arguments["verticalNormalizedPosition"]?.Value<float?>() ?? 1f);
+        }
+
+        EnsureEventSystem();
+        return scrollRectObject;
+    }
+
+    private static GameObject CreateInputField(JObject arguments)
+    {
+        var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
+        var inputObject = new GameObject(arguments.Value<string>("name") ?? "InputField", typeof(RectTransform), typeof(Image), typeof(InputField));
+        inputObject.transform.SetParent(canvas.transform, false);
+        ApplyRectTransform(inputObject.GetComponent<RectTransform>(), arguments, new Vector2(320f, 44f));
+
+        var image = inputObject.GetComponent<Image>();
+        image.color = ParseColor(arguments.Value<string>("backgroundColor"), new Color(0.12f, 0.12f, 0.12f, 1f));
+
+        var textAreaObject = new GameObject("Text Area", typeof(RectTransform));
+        textAreaObject.transform.SetParent(inputObject.transform, false);
+        StretchRect(textAreaObject.GetComponent<RectTransform>(), new Vector2(12f, 6f), new Vector2(-12f, -6f));
+
+        var textObject = CreateUiTextChild(textAreaObject.transform, "Text", arguments.Value<string>("text") ?? string.Empty, ParseColor(arguments.Value<string>("textColor"), Color.white), FontStyle.Normal, TextAnchor.MiddleLeft);
+        StretchRect(textObject.GetComponent<RectTransform>(), Vector2.zero, Vector2.zero);
+
+        var placeholderObject = CreateUiTextChild(textAreaObject.transform, "Placeholder", arguments.Value<string>("placeholder") ?? "Enter text", ParseColor(arguments.Value<string>("placeholderColor"), new Color(1f, 1f, 1f, 0.45f)), FontStyle.Italic, TextAnchor.MiddleLeft);
+        StretchRect(placeholderObject.GetComponent<RectTransform>(), Vector2.zero, Vector2.zero);
+
+        var inputField = inputObject.GetComponent<InputField>();
+        inputField.textComponent = textObject.GetComponent<Text>();
+        inputField.placeholder = placeholderObject.GetComponent<Text>();
+        inputField.lineType = arguments["multiline"]?.Value<bool?>() ?? false ? InputField.LineType.MultiLineNewline : InputField.LineType.SingleLine;
+        inputField.text = arguments.Value<string>("text") ?? string.Empty;
+        inputField.targetGraphic = image;
+        EnsureEventSystem();
+        return inputObject;
+    }
+
     private static GameObject EnsureCanvas(string canvasName)
     {
         var existing = GameObject.Find(canvasName);
@@ -1514,28 +1809,52 @@ public static class UnityCliBridgeServer
         return eventSystemObject.GetComponent<EventSystem>();
     }
 
+    private static GameObject CreateUiImageChild(Transform parent, string name, Color color)
+    {
+        var imageObject = new GameObject(name, typeof(RectTransform), typeof(Image));
+        imageObject.transform.SetParent(parent, false);
+        imageObject.GetComponent<Image>().color = color;
+        return imageObject;
+    }
+
+    private static GameObject CreateUiTextChild(Transform parent, string name, string textValue, Color color, FontStyle fontStyle, TextAnchor alignment)
+    {
+        var textObject = new GameObject(name, typeof(RectTransform), typeof(Text));
+        textObject.transform.SetParent(parent, false);
+        var text = textObject.GetComponent<Text>();
+        text.text = textValue;
+        text.alignment = alignment;
+        text.color = color;
+        text.font = LoadBuiltinFont();
+        text.fontStyle = fontStyle;
+        return textObject;
+    }
+
+    private static void StretchRect(RectTransform rectTransform, Vector2 offsetMin, Vector2 offsetMax)
+    {
+        rectTransform.anchorMin = Vector2.zero;
+        rectTransform.anchorMax = Vector2.one;
+        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        rectTransform.offsetMin = offsetMin;
+        rectTransform.offsetMax = offsetMax;
+    }
+
+    private static void ConfigureAnchoredRect(RectTransform rectTransform, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 sizeDelta, Vector2 anchoredPosition)
+    {
+        rectTransform.anchorMin = anchorMin;
+        rectTransform.anchorMax = anchorMax;
+        rectTransform.pivot = pivot;
+        rectTransform.sizeDelta = sizeDelta;
+        rectTransform.anchoredPosition = anchoredPosition;
+    }
+
     private static JObject DispatchTap(JObject arguments, string eventType, bool uiOnly)
     {
         var position = ResolveScreenPosition(arguments, "position", "normalizedPosition", "worldPosition", Vector2.zero);
         var worldPosition = ResolveWorldPosition(arguments, "worldPosition", position);
         var target = FindInteractionTarget(arguments, position, worldPosition, uiOnly);
         var gameObject = target.GameObject;
-        var eventSystem = EnsureEventSystem();
-        var eventData = new PointerEventData(eventSystem)
-        {
-            button = PointerEventData.InputButton.Left,
-            position = position,
-            pressPosition = position,
-            pointerId = -1,
-            pointerEnter = gameObject,
-            pointerPress = gameObject,
-        };
-
-        if (target.UiRaycast.HasValue)
-        {
-            eventData.pointerCurrentRaycast = target.UiRaycast.Value;
-            eventData.pointerPressRaycast = target.UiRaycast.Value;
-        }
+        var eventData = CreatePointerEventData(gameObject, target, position);
 
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerEnterHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerDownHandler);
@@ -1551,6 +1870,57 @@ public static class UnityCliBridgeServer
         };
     }
 
+    private static JObject DispatchDoubleTap(JObject arguments, string eventType, bool uiOnly)
+    {
+        var position = ResolveScreenPosition(arguments, "position", "normalizedPosition", "worldPosition", Vector2.zero);
+        var worldPosition = ResolveWorldPosition(arguments, "worldPosition", position);
+        var target = FindInteractionTarget(arguments, position, worldPosition, uiOnly);
+        var gameObject = target.GameObject;
+
+        DispatchSingleTap(gameObject, target, position, 1);
+        DispatchSingleTap(gameObject, target, position, 2);
+
+        Emit(eventType, $"Pointer double tap: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["clickCount"] = 2 });
+        return new JObject
+        {
+            ["id"] = gameObject.GetInstanceID(),
+            ["name"] = gameObject.name,
+            ["position"] = new JArray(position.x, position.y),
+            ["clickCount"] = 2,
+        };
+    }
+
+    private static JObject DispatchLongPress(JObject arguments, string eventType, bool uiOnly)
+    {
+        var position = ResolveScreenPosition(arguments, "position", "normalizedPosition", "worldPosition", Vector2.zero);
+        var worldPosition = ResolveWorldPosition(arguments, "worldPosition", position);
+        var target = FindInteractionTarget(arguments, position, worldPosition, uiOnly);
+        var gameObject = target.GameObject;
+        var durationMs = Math.Max(arguments["durationMs"]?.Value<int?>() ?? 600, 100);
+        var eventData = CreatePointerEventData(gameObject, target, position);
+
+        ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerEnterHandler);
+        ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerDownHandler);
+
+        var deadline = EditorApplication.timeSinceStartup + (durationMs / 1000d);
+        while (EditorApplication.timeSinceStartup < deadline)
+        {
+            Thread.Sleep(10);
+        }
+
+        eventData.clickTime = (float)EditorApplication.timeSinceStartup;
+        ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerUpHandler);
+
+        Emit(eventType, $"Pointer long press: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["durationMs"] = durationMs });
+        return new JObject
+        {
+            ["id"] = gameObject.GetInstanceID(),
+            ["name"] = gameObject.name,
+            ["position"] = new JArray(position.x, position.y),
+            ["durationMs"] = durationMs,
+        };
+    }
+
     private static JObject DispatchDrag(JObject arguments, string eventType, bool uiOnly)
     {
         var from = ResolveScreenPosition(arguments, "from", "normalizedFrom", "worldFrom", Vector2.zero);
@@ -1558,25 +1928,10 @@ public static class UnityCliBridgeServer
         var worldFrom = ResolveWorldPosition(arguments, "worldFrom", from);
         var target = FindInteractionTarget(arguments, from, worldFrom, uiOnly);
         var gameObject = target.GameObject;
-        var eventSystem = EnsureEventSystem();
-        var eventData = new PointerEventData(eventSystem)
-        {
-            button = PointerEventData.InputButton.Left,
-            pointerId = -1,
-            pressPosition = from,
-            position = from,
-            delta = Vector2.zero,
-            useDragThreshold = false,
-            pointerDrag = gameObject,
-            pointerEnter = gameObject,
-            pointerPress = gameObject,
-        };
-
-        if (target.UiRaycast.HasValue)
-        {
-            eventData.pointerCurrentRaycast = target.UiRaycast.Value;
-            eventData.pointerPressRaycast = target.UiRaycast.Value;
-        }
+        var eventData = CreatePointerEventData(gameObject, target, from);
+        eventData.delta = Vector2.zero;
+        eventData.useDragThreshold = false;
+        eventData.pointerDrag = gameObject;
 
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerEnterHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.initializePotentialDrag);
@@ -1597,6 +1952,38 @@ public static class UnityCliBridgeServer
             ["from"] = new JArray(from.x, from.y),
             ["to"] = new JArray(to.x, to.y),
         };
+    }
+
+    private static void DispatchSingleTap(GameObject gameObject, InteractionTarget target, Vector2 position, int clickCount)
+    {
+        var eventData = CreatePointerEventData(gameObject, target, position);
+        eventData.clickCount = clickCount;
+        eventData.clickTime = (float)EditorApplication.timeSinceStartup;
+        ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerEnterHandler);
+        ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerDownHandler);
+        ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerUpHandler);
+        ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerClickHandler);
+    }
+
+    private static PointerEventData CreatePointerEventData(GameObject gameObject, InteractionTarget target, Vector2 position)
+    {
+        var eventData = new PointerEventData(EnsureEventSystem())
+        {
+            button = PointerEventData.InputButton.Left,
+            pointerId = -1,
+            position = position,
+            pressPosition = position,
+            pointerEnter = gameObject,
+            pointerPress = gameObject,
+        };
+
+        if (target.UiRaycast.HasValue)
+        {
+            eventData.pointerCurrentRaycast = target.UiRaycast.Value;
+            eventData.pointerPressRaycast = target.UiRaycast.Value;
+        }
+
+        return eventData;
     }
 
     private static void ApplyRectTransform(RectTransform rectTransform, JObject arguments, Vector2 defaultSize)
