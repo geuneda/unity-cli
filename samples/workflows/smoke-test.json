@@ -52,7 +52,7 @@
       "waitFor": {
         "type": "tests.completed",
         "contains": "EditMode",
-        "timeoutMs": 2000
+        "timeoutMs": 10000
       }
     }
   ]

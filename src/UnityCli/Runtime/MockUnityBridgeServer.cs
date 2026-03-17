@@ -234,9 +234,9 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         };
     }
 
-    private ToolCallResponse Success(string message, JsonNode? result)
+    private ToolCallResponse Success(string message, JsonNode? result, IReadOnlyList<BridgeEvent>? events = null)
     {
-        return new ToolCallResponse(true, message, result, null);
+        return new ToolCallResponse(true, message, result, events);
     }
 
     private JsonNode CreateScene(JsonObject args)
@@ -593,11 +593,11 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
     private async Task<ToolCallResponse> RunTestsAsync(JsonObject args, CancellationToken cancellationToken)
     {
         var mode = GetString(args, "mode", "EditMode");
-        Emit("tests.started", $"Tests started: {mode}", new JsonObject { ["mode"] = mode });
+        var startedEvent = Emit("tests.started", $"Tests started: {mode}", new JsonObject { ["mode"] = mode });
         await Task.Delay(150, cancellationToken);
         var passed = _tests.Count(x => x.Mode.Equals(mode, StringComparison.OrdinalIgnoreCase));
-        Emit("tests.completed", $"Tests completed: {mode}", new JsonObject { ["mode"] = mode, ["passed"] = passed, ["failed"] = 0 });
-        return Success("Tests completed.", new JsonObject { ["mode"] = mode, ["passed"] = passed, ["failed"] = 0 });
+        var completedEvent = Emit("tests.completed", $"Tests completed: {mode}", new JsonObject { ["mode"] = mode, ["passed"] = passed, ["failed"] = 0 });
+        return Success("Tests completed.", new JsonObject { ["mode"] = mode, ["passed"] = passed, ["failed"] = 0 }, [startedEvent, completedEvent]);
     }
 
     private JsonNode GetLogs(JsonObject args)
@@ -845,19 +845,22 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         };
     }
 
-    private void Emit(string type, string message, JsonNode? data)
+    private BridgeEvent Emit(string type, string message, JsonNode? data)
     {
         TaskCompletionSource<bool> signalToRelease;
+        BridgeEvent bridgeEvent;
 
         lock (_gate)
         {
             _cursor++;
-            _events.Add(new BridgeEvent(_cursor, type, message, DateTimeOffset.UtcNow, JsonHelpers.DeepClone(data)));
+            bridgeEvent = new BridgeEvent(_cursor, type, message, DateTimeOffset.UtcNow, JsonHelpers.DeepClone(data));
+            _events.Add(bridgeEvent);
             signalToRelease = _eventSignal;
             _eventSignal = NewSignal();
         }
 
         signalToRelease.TrySetResult(true);
+        return bridgeEvent;
     }
 
     private static TaskCompletionSource<bool> NewSignal()

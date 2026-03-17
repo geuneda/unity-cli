@@ -412,7 +412,7 @@
 -analyzer:"/Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/BuildPipeline/Unity.SourceGenerators/Unity.Properties.SourceGenerator.dll"
 -analyzer:"/Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/BuildPipeline/Unity.SourceGenerators/Unity.SourceGenerators.dll"
 -analyzer:"/Applications/Unity/Hub/Editor/6000.3.11f1/Unity.app/Contents/Resources/BuildPipeline/Unity.SourceGenerators/Unity.UIToolkit.SourceGenerator.dll"
-"/Users/geuneda/Documents/GitHub/unity-cli/unity-connector/Editor/UnityCliBridge.cs"
+"Packages/com.geuneda.unity-cli-connector/Editor/UnityCliBridge.cs"
 -langversion:9.0
 /deterministic
 /optimize+

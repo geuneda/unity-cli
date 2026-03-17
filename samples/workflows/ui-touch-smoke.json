@@ -1,6 +1,13 @@
 {
   "steps": [
     {
+      "id": "scene",
+      "call": "scene.create",
+      "args": {
+        "path": "Assets/Scenes/CliUiTouchSmoke.unity"
+      }
+    },
+    {
       "id": "canvas",
       "call": "ui.canvas.create",
       "args": {
@@ -36,10 +43,9 @@
       "id": "tap",
       "call": "ui.click",
       "args": {
-        "name": "CliButton",
-        "position": [
-          200,
-          200
+        "normalizedPosition": [
+          0.5,
+          0.5
         ]
       }
     },
@@ -55,14 +61,13 @@
       "id": "drag",
       "call": "ui.drag",
       "args": {
-        "name": "CliButton",
-        "from": [
-          150,
-          150
+        "normalizedFrom": [
+          0.5,
+          0.5
         ],
-        "to": [
-          400,
-          300
+        "normalizedTo": [
+          0.72,
+          0.64
         ]
       }
     },
@@ -99,10 +104,10 @@
       "id": "sprite-tap",
       "call": "input.tap",
       "args": {
-        "name": "CliSprite",
-        "position": [
-          320,
-          180
+        "worldPosition": [
+          2,
+          1,
+          0
         ]
       }
     },
@@ -111,6 +116,30 @@
       "waitFor": {
         "type": "console.log",
         "contains": "CliUiProbe click CliSprite",
+        "timeoutMs": 2000
+      }
+    },
+    {
+      "id": "sprite-drag",
+      "call": "input.drag",
+      "args": {
+        "worldFrom": [
+          2,
+          1,
+          0
+        ],
+        "worldTo": [
+          2.75,
+          1,
+          0
+        ]
+      }
+    },
+    {
+      "id": "wait-sprite-drag",
+      "waitFor": {
+        "type": "console.log",
+        "contains": "CliUiProbe end drag CliSprite",
         "timeoutMs": 2000
       }
     }

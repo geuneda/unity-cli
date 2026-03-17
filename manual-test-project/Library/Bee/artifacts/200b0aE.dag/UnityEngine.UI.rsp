@@ -137,6 +137,7 @@
 -define:PACKAGE_TILEMAP
 -define:PACKAGE_ANIMATION
 -define:PACKAGE_UITOOLKIT
+-define:PACKAGE_INPUTSYSTEM
 -define:CSHARP_7_OR_LATER
 -define:CSHARP_7_3_OR_NEWER
 -r:"/Applications/Unity/Hub/Editor/6000.3.11f1/PlaybackEngines/AndroidPlayer/Unity.Android.Gradle.dll"

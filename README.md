@@ -67,6 +67,9 @@ dotnet run --project src/UnityCli -- workflow run samples/workflows/smoke-test.j
 
 `unity-connector` 폴더를 Unity 프로젝트의 `Packages/com.geuneda.unity-cli-connector`로 복사하거나 Git dependency로 추가합니다.
 
+반복적인 로컬 개발/검증에는 `Packages/com.geuneda.unity-cli-connector -> /path/to/unity-connector` 형태의 embedded package 연결이 가장 안정적입니다.
+이 방식으로 패키지 소스를 수정했다면 `editor refresh` 후 `editor compile`을 호출하는 흐름을 권장합니다.
+
 패키지가 로드되면 기본적으로 `http://127.0.0.1:52737` 에서 HTTP bridge를 열고, `~/.unity-cli/instances.json`에 현재 엔드포인트를 기록합니다.
 
 CLI는 `--base-url`이 없으면 이 `instances.json`의 `default.baseUrl`을 먼저 사용하고, 파일이 없을 때만 `http://127.0.0.1:52737`로 fallback 합니다.
@@ -99,7 +102,9 @@ dotnet run --project src/UnityCli -- gameobject create name=Enemy primitive=Cube
 dotnet run --project src/UnityCli -- material create path=Assets/CliMaterial.mat shader=Standard
 dotnet run --project src/UnityCli -- material assign name=Enemy materialPath=Assets/CliMaterial.mat
 dotnet run --project src/UnityCli -- resource get scene/hierarchy
+dotnet run --project src/UnityCli -- editor refresh
 dotnet run --project src/UnityCli -- --timeout-ms=180000 editor compile
+dotnet run --project src/UnityCli -- batch run samples/workflows/bootstrap.json
 dotnet run --project src/UnityCli -- workflow run samples/workflows/smoke-test.json
 dotnet run --project src/UnityCli -- workflow run samples/workflows/ui-touch-smoke.json
 dotnet run --project src/UnityCli -- --timeout-ms=60000 tests run mode=EditMode
@@ -118,6 +123,10 @@ dotnet run --project src/UnityCli -- --timeout-ms=240000 tests run mode=PlayMode
 6. `tests.completed` 이벤트를 기다림
 
 이 구조로 "콜백이 오면 다음 스텝 실행" 형태의 CLI 기반 검증을 만들 수 있습니다.
+현재 `workflow run`은 실행 시작 시점의 최신 이벤트 커서를 스냅샷하고, 각 tool 응답 안에 포함된 이벤트도 다음 `waitFor`에서 재사용합니다.
+따라서 같은 workflow를 반복 실행해도 과거 실행의 `console.log`/`tests.completed`를 다시 잡지 않습니다.
+
+`samples/workflows/ui-touch-smoke.json`은 매 실행마다 전용 씬을 새로 만들어서, 동일한 이름의 UI/GameObject가 누적돼도 안정적으로 반복 검증할 수 있게 해둔 상태입니다.
 
 ## 현재 검증 상태
 
@@ -126,16 +135,24 @@ dotnet run --project src/UnityCli -- --timeout-ms=240000 tests run mode=PlayMode
   - `gameobject.*`
   - `sprite.create`
   - `material.*`
-  - `asset.list`
+  - `asset.list`, `asset.add-to-scene`
   - `package.list`, `package.add`
   - `tests.list`, `tests.run mode=EditMode`, `tests.run mode=PlayMode`
   - `console.get`, `console.clear`, `console.send`
   - `ui.canvas.create`, `ui.button.create`, `ui.text.create`, `ui.image.create`
   - `ui.click`, `ui.drag`, `input.tap`, `input.drag`
-  - `editor.play`, `editor.stop`, `editor.pause`, `editor.refresh`, `editor.compile`
-  - `resource get scene/hierarchy`, `resource get ui/hierarchy`, `resource get tests/catalog`, `resource get packages/list`
+  - `menu.execute`
+  - `editor.refresh`, `editor.compile`
+  - `resource list`, `resource get editor/state`, `resource get scene/hierarchy`, `resource get ui/hierarchy`, `resource get tests/catalog`, `resource get packages/list`
+  - `events tail`
+  - `batch run samples/workflows/bootstrap.json`
   - `workflow run samples/workflows/smoke-test.json`
   - `workflow run samples/workflows/ui-touch-smoke.json`
+
+- 실제 Editor 검증에 사용한 현재 manual test project 상태:
+  - embedded package: `Packages/com.geuneda.unity-cli-connector -> unity-connector`
+  - registry package: `com.unity.inputsystem@1.19.0`
+  - sample prefab: `Assets/Prefabs/CliPrefab.prefab`
 
 - 아직 제한이 남아 있음:
   - `mock serve` 는 실기능 검증 경로가 아니라 CLI 회귀 테스트용입니다.

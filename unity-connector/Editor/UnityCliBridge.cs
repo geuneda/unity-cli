@@ -34,6 +34,7 @@ public static class UnityCliBridgeServer
     private static CancellationTokenSource? _cts;
     private static Task? _serverTask;
     private static long _cursor;
+    private static double _nextStartAttemptAt = -1d;
     private static readonly string SessionId = Guid.NewGuid().ToString("N");
     private static readonly string[] ToolNames =
     {
@@ -63,26 +64,33 @@ public static class UnityCliBridgeServer
 
     private static void Start()
     {
-        if (_serverTask != null)
+        if (_serverTask != null || Listener.IsListening)
         {
             return;
         }
 
         var host = "127.0.0.1";
         var port = 52737;
+        var prefix = $"http://{host}:{port}/";
         try
         {
-            Listener.Prefixes.Add($"http://{host}:{port}/");
+            if (!Listener.Prefixes.Contains(prefix))
+            {
+                Listener.Prefixes.Add(prefix);
+            }
+
             Listener.Start();
         }
         catch (HttpListenerException)
         {
+            _nextStartAttemptAt = EditorApplication.timeSinceStartup + 1d;
             return;
         }
 
+        _nextStartAttemptAt = -1d;
         _cts = new CancellationTokenSource();
         _serverTask = Task.Run(() => AcceptLoopAsync(_cts.Token), _cts.Token);
-        Emit("bridge.started", $"Unity CLI bridge listening on http://{host}:{port}/", new JObject { ["port"] = port });
+        Emit("bridge.started", $"Unity CLI bridge listening on {prefix}", new JObject { ["port"] = port, ["sessionId"] = SessionId });
         RegisterInstance(host, port);
     }
 
@@ -103,6 +111,7 @@ public static class UnityCliBridgeServer
             }
 
             Listener.Close();
+            _serverTask = null;
         }
         catch
         {
@@ -387,13 +396,25 @@ public static class UnityCliBridgeServer
             "material.create" => await OnMainThreadAsync(() =>
             {
                 var path = arguments.Value<string>("path") ?? "Assets/Materials/CliMaterial.mat";
-                var shaderName = arguments.Value<string>("shader") ?? "Universal Render Pipeline/Lit";
+                var shader = ResolveShader(arguments.Value<string>("shader"), allowFallback: true);
                 EnsureParentDirectory(path);
-                var material = new Material(Shader.Find(shaderName));
+                var material = new Material(shader);
                 AssetDatabase.CreateAsset(material, path);
+                var createdMaterial = AssetDatabase.LoadAssetAtPath<Material>(path) ?? material;
+                var colorText = arguments.Value<string>("color");
+                if (!string.IsNullOrEmpty(colorText) && ColorUtility.TryParseHtmlString(colorText, out var color))
+                {
+                    createdMaterial.color = color;
+                    if (createdMaterial.HasProperty("_Color"))
+                    {
+                        createdMaterial.SetColor("_Color", color);
+                    }
+                }
+
+                EditorUtility.SetDirty(createdMaterial);
                 AssetDatabase.SaveAssets();
                 Emit("asset.changed", $"Material created: {path}", new JObject { ["path"] = path });
-                return Success(MaterialObject(material, path), "Material created.");
+                return Success(MaterialObject(createdMaterial, path), "Material created.");
             }),
             "material.assign" => await OnMainThreadAsync(() =>
             {
@@ -422,7 +443,7 @@ public static class UnityCliBridgeServer
                 var shaderName = arguments.Value<string>("shader");
                 if (!string.IsNullOrEmpty(shaderName))
                 {
-                    material.shader = Shader.Find(shaderName);
+                    material.shader = ResolveShader(shaderName, allowFallback: false);
                 }
 
                 var colorText = arguments.Value<string>("color");
@@ -537,19 +558,19 @@ public static class UnityCliBridgeServer
             }),
             "ui.click" => await OnMainThreadAsync(() =>
             {
-                return Success(DispatchTap(arguments, "ui.clicked"), "UI click dispatched.");
+                return Success(DispatchTap(arguments, "ui.clicked", uiOnly: true), "UI click dispatched.");
             }),
             "ui.drag" => await OnMainThreadAsync(() =>
             {
-                return Success(DispatchDrag(arguments, "ui.dragged"), "UI drag dispatched.");
+                return Success(DispatchDrag(arguments, "ui.dragged", uiOnly: true), "UI drag dispatched.");
             }),
             "input.tap" => await OnMainThreadAsync(() =>
             {
-                return Success(DispatchTap(arguments, "input.tapped"), "Input tap dispatched.");
+                return Success(DispatchTap(arguments, "input.tapped", uiOnly: false), "Input tap dispatched.");
             }),
             "input.drag" => await OnMainThreadAsync(() =>
             {
-                return Success(DispatchDrag(arguments, "input.dragged"), "Input drag dispatched.");
+                return Success(DispatchDrag(arguments, "input.dragged", uiOnly: false), "Input drag dispatched.");
             }),
             "menu.execute" => await OnMainThreadAsync(() =>
             {
@@ -1086,6 +1107,287 @@ public static class UnityCliBridgeServer
         return GameObject.Find(name) ?? throw new InvalidOperationException($"GameObject '{name}' was not found.");
     }
 
+    private static InteractionTarget FindInteractionTarget(JObject arguments, Vector2 screenPosition, Vector3? worldPosition, bool uiOnly)
+    {
+        if (arguments["id"] != null || arguments["name"] != null)
+        {
+            var explicitTarget = FindGameObject(arguments);
+            if (TryFindUiTarget(screenPosition, explicitTarget, out var uiTarget))
+            {
+                return uiTarget;
+            }
+
+            return new InteractionTarget(explicitTarget, null);
+        }
+
+        if (TryFindUiTarget(screenPosition, null, out var implicitUiTarget))
+        {
+            return implicitUiTarget;
+        }
+
+        if (!uiOnly && TryFindWorldTarget(arguments, screenPosition, worldPosition, out var worldTarget))
+        {
+            return worldTarget;
+        }
+
+        throw new InvalidOperationException(uiOnly
+            ? "No UI target found. Provide id/name or a screen position that hits a UI element."
+            : "No interaction target found. Provide id/name, normalizedPosition, position, or worldPosition.");
+    }
+
+    private static bool TryFindUiTarget(Vector2 screenPosition, GameObject? preferredTarget, out InteractionTarget target)
+    {
+        target = default;
+        var eventSystem = EnsureEventSystem();
+        var eventData = new PointerEventData(eventSystem)
+        {
+            position = screenPosition,
+        };
+
+        var raycastResults = new List<RaycastResult>();
+        eventSystem.RaycastAll(eventData, raycastResults);
+        if (raycastResults.Count == 0)
+        {
+            foreach (var raycaster in UnityEngine.Object.FindObjectsOfType<GraphicRaycaster>())
+            {
+                raycaster.Raycast(eventData, raycastResults);
+            }
+        }
+
+        if (raycastResults.Count == 0)
+        {
+            raycastResults.AddRange(
+                UnityEngine.Object.FindObjectsOfType<RectTransform>()
+                    .Where(rectTransform =>
+                    {
+                        if (rectTransform == null || !rectTransform.gameObject.activeInHierarchy)
+                        {
+                            return false;
+                        }
+
+                        if (rectTransform.GetComponent<Canvas>() != null)
+                        {
+                            return false;
+                        }
+
+                        var canvas = rectTransform.GetComponentInParent<Canvas>();
+                        if (canvas == null || !canvas.isActiveAndEnabled)
+                        {
+                            return false;
+                        }
+
+                        var scaledSize = Vector2.Scale(rectTransform.rect.size, rectTransform.lossyScale);
+                        if (scaledSize.x <= 0f || scaledSize.y <= 0f)
+                        {
+                            return false;
+                        }
+
+                        var center = (Vector2)rectTransform.position;
+                        var bounds = new Rect(center - (scaledSize * 0.5f), scaledSize);
+                        return bounds.Contains(screenPosition);
+                    })
+                    .OrderByDescending(rectTransform => rectTransform.GetComponentsInParent<Transform>(true).Length)
+                    .ThenBy(rectTransform => rectTransform.rect.size.sqrMagnitude)
+                    .Select(rectTransform => new RaycastResult { gameObject = rectTransform.gameObject }));
+        }
+
+        if (raycastResults.Count == 0 && preferredTarget == null)
+        {
+            var nearestSelectable = UnityEngine.Object.FindObjectsOfType<Selectable>()
+                .Where(selectable => selectable != null && selectable.gameObject.activeInHierarchy)
+                .Select(selectable => new
+                {
+                    selectable,
+                    distance = Vector2.Distance((Vector2)selectable.transform.position, screenPosition),
+                })
+                .OrderBy(entry => entry.distance)
+                .FirstOrDefault();
+
+            if (nearestSelectable != null && nearestSelectable.distance <= 512f)
+            {
+                raycastResults.Add(new RaycastResult { gameObject = nearestSelectable.selectable.gameObject });
+            }
+        }
+
+        foreach (var raycast in raycastResults)
+        {
+            var hitObject = raycast.gameObject;
+            if (hitObject == null)
+            {
+                continue;
+            }
+
+            if (preferredTarget != null)
+            {
+                if (hitObject != preferredTarget
+                    && !hitObject.transform.IsChildOf(preferredTarget.transform)
+                    && !preferredTarget.transform.IsChildOf(hitObject.transform))
+                {
+                    continue;
+                }
+
+                target = new InteractionTarget(preferredTarget, raycast);
+                return true;
+            }
+
+            target = new InteractionTarget(ResolveUiTarget(hitObject), raycast);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static GameObject ResolveUiTarget(GameObject hitObject)
+    {
+        return ExecuteEvents.GetEventHandler<IDragHandler>(hitObject)
+            ?? ExecuteEvents.GetEventHandler<IBeginDragHandler>(hitObject)
+            ?? ExecuteEvents.GetEventHandler<IPointerClickHandler>(hitObject)
+            ?? ExecuteEvents.GetEventHandler<IPointerDownHandler>(hitObject)
+            ?? ExecuteEvents.GetEventHandler<IPointerUpHandler>(hitObject)
+            ?? hitObject;
+    }
+
+    private static bool TryFindWorldTarget(JObject arguments, Vector2 screenPosition, Vector3? worldPosition, out InteractionTarget target)
+    {
+        target = default;
+
+        if (worldPosition.HasValue)
+        {
+            var overlap2D = Physics2D.OverlapPointAll(worldPosition.Value);
+            var collider2D = overlap2D
+                .Where(collider => collider != null)
+                .OrderByDescending(collider => collider.transform.position.z)
+                .FirstOrDefault();
+            if (collider2D != null)
+            {
+                target = new InteractionTarget(collider2D.gameObject, null);
+                return true;
+            }
+
+            var collider3D = Physics.OverlapSphere(worldPosition.Value, 0.05f)
+                .Where(collider => collider != null)
+                .OrderBy(collider => Vector3.Distance(collider.ClosestPoint(worldPosition.Value), worldPosition.Value))
+                .FirstOrDefault();
+            if (collider3D != null)
+            {
+                target = new InteractionTarget(collider3D.gameObject, null);
+                return true;
+            }
+        }
+
+        var camera = FindInteractionCamera(arguments);
+        if (camera == null)
+        {
+            return false;
+        }
+
+        var ray = camera.ScreenPointToRay(screenPosition);
+        var best2D = Physics2D.GetRayIntersectionAll(ray, Mathf.Infinity)
+            .Where(hit => hit.collider != null)
+            .OrderBy(hit => hit.distance)
+            .FirstOrDefault();
+        var best3D = Physics.RaycastAll(ray, Mathf.Infinity)
+            .Where(hit => hit.collider != null)
+            .OrderBy(hit => hit.distance)
+            .FirstOrDefault();
+
+        if (best2D.collider != null && (best3D.collider == null || best2D.distance <= best3D.distance))
+        {
+            target = new InteractionTarget(best2D.collider.gameObject, null);
+            return true;
+        }
+
+        if (best3D.collider != null)
+        {
+            target = new InteractionTarget(best3D.collider.gameObject, null);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static Camera? FindInteractionCamera(JObject arguments)
+    {
+        var cameraName = arguments.Value<string>("cameraName");
+        if (!string.IsNullOrWhiteSpace(cameraName))
+        {
+            var namedCameraObject = GameObject.Find(cameraName);
+            if (namedCameraObject != null)
+            {
+                var namedCamera = namedCameraObject.GetComponent<Camera>();
+                if (namedCamera != null)
+                {
+                    return namedCamera;
+                }
+            }
+        }
+
+        return Camera.main
+            ?? UnityEngine.Object.FindObjectsOfType<Camera>().FirstOrDefault(camera => camera.enabled)
+            ?? SceneView.lastActiveSceneView?.camera;
+    }
+
+    private static Vector2 ResolveScreenPosition(JObject arguments, string positionKey, string normalizedKey, string worldKey, Vector2 fallback)
+    {
+        if (arguments[positionKey] is JArray positionValues)
+        {
+            return ParseVector2(positionValues, fallback);
+        }
+
+        if (arguments[normalizedKey] is JArray normalizedValues)
+        {
+            var normalizedPosition = ParseVector2(normalizedValues, new Vector2(0.5f, 0.5f));
+            var screenSize = ResolveScreenSize(arguments);
+            return new Vector2(normalizedPosition.x * screenSize.x, normalizedPosition.y * screenSize.y);
+        }
+
+        if (arguments[worldKey] is JArray worldValues)
+        {
+            var worldPosition = ParseVector3(worldValues, Vector3.zero);
+            var camera = FindInteractionCamera(arguments);
+            if (camera != null)
+            {
+                var screenPosition = camera.WorldToScreenPoint(worldPosition);
+                return new Vector2(screenPosition.x, screenPosition.y);
+            }
+        }
+
+        return fallback;
+    }
+
+    private static Vector2 ResolveScreenSize(JObject arguments)
+    {
+        var camera = FindInteractionCamera(arguments);
+        if (camera != null && camera.pixelWidth > 0f && camera.pixelHeight > 0f)
+        {
+            return new Vector2(camera.pixelWidth, camera.pixelHeight);
+        }
+
+        if (Screen.width > 0 && Screen.height > 0)
+        {
+            return new Vector2(Screen.width, Screen.height);
+        }
+
+        return new Vector2(1920f, 1080f);
+    }
+
+    private static Vector3? ResolveWorldPosition(JObject arguments, string worldKey, Vector2 screenPosition)
+    {
+        if (arguments[worldKey] is JArray worldValues)
+        {
+            return ParseVector3(worldValues, Vector3.zero);
+        }
+
+        var camera = FindInteractionCamera(arguments);
+        if (camera == null)
+        {
+            return null;
+        }
+
+        var world = camera.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, Mathf.Abs(camera.transform.position.z)));
+        return new Vector3(world.x, world.y, world.z);
+    }
+
     private static void ApplyTransform(Transform transform, JObject arguments)
     {
         ApplyPosition(transform, arguments["position"] as JArray);
@@ -1203,19 +1505,30 @@ public static class UnityCliBridgeServer
         return eventSystemObject.GetComponent<EventSystem>();
     }
 
-    private static JObject DispatchTap(JObject arguments, string eventType)
+    private static JObject DispatchTap(JObject arguments, string eventType, bool uiOnly)
     {
-        var gameObject = FindGameObject(arguments);
+        var position = ResolveScreenPosition(arguments, "position", "normalizedPosition", "worldPosition", Vector2.zero);
+        var worldPosition = ResolveWorldPosition(arguments, "worldPosition", position);
+        var target = FindInteractionTarget(arguments, position, worldPosition, uiOnly);
+        var gameObject = target.GameObject;
         var eventSystem = EnsureEventSystem();
-        var position = ParseVector2(arguments["position"] as JArray, Vector2.zero);
         var eventData = new PointerEventData(eventSystem)
         {
             button = PointerEventData.InputButton.Left,
             position = position,
             pressPosition = position,
             pointerId = -1,
+            pointerEnter = gameObject,
+            pointerPress = gameObject,
         };
 
+        if (target.UiRaycast.HasValue)
+        {
+            eventData.pointerCurrentRaycast = target.UiRaycast.Value;
+            eventData.pointerPressRaycast = target.UiRaycast.Value;
+        }
+
+        ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerEnterHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerDownHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerUpHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerClickHandler);
@@ -1229,12 +1542,14 @@ public static class UnityCliBridgeServer
         };
     }
 
-    private static JObject DispatchDrag(JObject arguments, string eventType)
+    private static JObject DispatchDrag(JObject arguments, string eventType, bool uiOnly)
     {
-        var gameObject = FindGameObject(arguments);
+        var from = ResolveScreenPosition(arguments, "from", "normalizedFrom", "worldFrom", Vector2.zero);
+        var to = ResolveScreenPosition(arguments, "to", "normalizedTo", "worldTo", new Vector2(128f, 128f));
+        var worldFrom = ResolveWorldPosition(arguments, "worldFrom", from);
+        var target = FindInteractionTarget(arguments, from, worldFrom, uiOnly);
+        var gameObject = target.GameObject;
         var eventSystem = EnsureEventSystem();
-        var from = ParseVector2(arguments["from"] as JArray, Vector2.zero);
-        var to = ParseVector2(arguments["to"] as JArray, new Vector2(128f, 128f));
         var eventData = new PointerEventData(eventSystem)
         {
             button = PointerEventData.InputButton.Left,
@@ -1244,8 +1559,17 @@ public static class UnityCliBridgeServer
             delta = Vector2.zero,
             useDragThreshold = false,
             pointerDrag = gameObject,
+            pointerEnter = gameObject,
+            pointerPress = gameObject,
         };
 
+        if (target.UiRaycast.HasValue)
+        {
+            eventData.pointerCurrentRaycast = target.UiRaycast.Value;
+            eventData.pointerPressRaycast = target.UiRaycast.Value;
+        }
+
+        ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerEnterHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.initializePotentialDrag);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerDownHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.beginDragHandler);
@@ -1285,10 +1609,56 @@ public static class UnityCliBridgeServer
         return new Vector2(values[0].Value<float>(), values[1].Value<float>());
     }
 
+    private static Vector3 ParseVector3(JArray? values, Vector3 fallback)
+    {
+        if (values == null || values.Count < 2)
+        {
+            return fallback;
+        }
+
+        return new Vector3(
+            values[0].Value<float>(),
+            values[1].Value<float>(),
+            values.Count > 2 ? values[2].Value<float>() : fallback.z);
+    }
+
     private static Color ParseColor(string colorText, Color fallback)
     {
         Color color;
         return !string.IsNullOrEmpty(colorText) && ColorUtility.TryParseHtmlString(colorText, out color) ? color : fallback;
+    }
+
+    private static Shader ResolveShader(string? shaderName, bool allowFallback)
+    {
+        var candidateNames = new List<string>();
+        if (!string.IsNullOrWhiteSpace(shaderName))
+        {
+            candidateNames.Add(shaderName);
+        }
+
+        if (allowFallback)
+        {
+            candidateNames.Add("Standard");
+            candidateNames.Add("Universal Render Pipeline/Lit");
+            candidateNames.Add("Sprites/Default");
+            candidateNames.Add("Unlit/Color");
+        }
+
+        foreach (var candidateName in candidateNames.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var shader = Shader.Find(candidateName);
+            if (shader != null)
+            {
+                return shader;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(shaderName))
+        {
+            throw new InvalidOperationException("No compatible shader found.");
+        }
+
+        throw new InvalidOperationException($"Shader not found: {shaderName}");
     }
 
     private static Font LoadBuiltinFont()
@@ -1354,6 +1724,12 @@ public static class UnityCliBridgeServer
 
     private static void OnEditorUpdate()
     {
+        if (_nextStartAttemptAt >= 0d && EditorApplication.timeSinceStartup >= _nextStartAttemptAt)
+        {
+            _nextStartAttemptAt = -1d;
+            Start();
+        }
+
         RecoverPendingCompilation();
         RecoverActivePlayModeTestRun();
         RecoverCompletedTestRuns();
@@ -1771,6 +2147,18 @@ public static class UnityCliBridgeServer
         public string Message { get; set; } = string.Empty;
         public DateTimeOffset Timestamp { get; set; }
         public JObject? Data { get; set; }
+    }
+
+    private readonly struct InteractionTarget
+    {
+        public InteractionTarget(GameObject gameObject, RaycastResult? uiRaycast)
+        {
+            GameObject = gameObject;
+            UiRaycast = uiRaycast;
+        }
+
+        public GameObject GameObject { get; }
+        public RaycastResult? UiRaycast { get; }
     }
 
     internal sealed class PersistentCompilationState

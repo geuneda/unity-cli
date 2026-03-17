@@ -21,7 +21,8 @@ public sealed class WorkflowRunner
 
         var variables = workflow.Variables ?? new Dictionary<string, string>();
         var results = new List<WorkflowStepResult>();
-        long cursor = 0;
+        var observedEvents = new List<BridgeEvent>();
+        long cursor = (await _client.GetStatusAsync(cancellationToken)).EventCursor;
 
         foreach (var step in workflow.Steps)
         {
@@ -35,6 +36,11 @@ public sealed class WorkflowRunner
             {
                 var arguments = JsonHelpers.EnsureObject(JsonHelpers.ReplaceVariables(step.Args, variables));
                 var response = await _client.CallToolAsync(step.Call!, arguments, cancellationToken);
+                if (response.Events is { Count: > 0 })
+                {
+                    observedEvents.AddRange(response.Events);
+                }
+
                 results.Add(new WorkflowStepResult(stepName, step.Call!, response.Success, response.Result, null, response.Message));
                 if (!response.Success)
                 {
@@ -44,7 +50,7 @@ public sealed class WorkflowRunner
 
             if (step.WaitFor is not null)
             {
-                var foundEvent = await WaitForEventAsync(step.WaitFor, cursor, cancellationToken);
+                var foundEvent = await WaitForEventAsync(step.WaitFor, cursor, observedEvents, cancellationToken);
                 cursor = Math.Max(cursor, foundEvent.Cursor);
                 results.Add(new WorkflowStepResult(stepName, "wait", true, null, foundEvent, foundEvent.Message));
             }
@@ -53,13 +59,32 @@ public sealed class WorkflowRunner
         return results;
     }
 
-    private async Task<BridgeEvent> WaitForEventAsync(WorkflowWaitCondition waitCondition, long after, CancellationToken cancellationToken)
+    private async Task<BridgeEvent> WaitForEventAsync(WorkflowWaitCondition waitCondition, long after, List<BridgeEvent> observedEvents, CancellationToken cancellationToken)
     {
+        var bufferedMatch = observedEvents.FirstOrDefault(e =>
+            e.Cursor > after
+            && string.Equals(e.Type, waitCondition.Type, StringComparison.OrdinalIgnoreCase)
+            && (string.IsNullOrWhiteSpace(waitCondition.Contains) || e.Message.Contains(waitCondition.Contains, StringComparison.OrdinalIgnoreCase)));
+        if (bufferedMatch is not null)
+        {
+            return bufferedMatch;
+        }
+
+        if (observedEvents.Count > 0)
+        {
+            after = Math.Max(after, observedEvents[^1].Cursor);
+        }
+
         var startedAt = DateTimeOffset.UtcNow;
         while (DateTimeOffset.UtcNow - startedAt < TimeSpan.FromMilliseconds(waitCondition.TimeoutMs))
         {
             var response = await _client.PollEventsAsync(after, 250, cancellationToken);
             after = response.Cursor;
+            if (response.Events.Count > 0)
+            {
+                observedEvents.AddRange(response.Events);
+            }
+
             var match = response.Events.FirstOrDefault(e =>
                 string.Equals(e.Type, waitCondition.Type, StringComparison.OrdinalIgnoreCase)
                 && (string.IsNullOrWhiteSpace(waitCondition.Contains) || e.Message.Contains(waitCondition.Contains, StringComparison.OrdinalIgnoreCase)));

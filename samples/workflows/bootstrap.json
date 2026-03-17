@@ -10,7 +10,7 @@
       "name": "material.create",
       "arguments": {
         "path": "Assets/Materials/Bootstrap.mat",
-        "shader": "Universal Render Pipeline/Lit",
+        "shader": "Standard",
         "color": "#00C2A8FF"
       }
     },

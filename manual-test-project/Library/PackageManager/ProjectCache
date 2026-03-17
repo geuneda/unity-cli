@@ -5,83 +5,142 @@ m_ProjectFiles:
     m_ContentTrackingEnabled: 1
     m_ModificationDate:
       serializedVersion: 2
-      ticks: 639093057850000000
-    m_Hash: 2942764823
+      ticks: 639093081980000000
+    m_Hash: 2743522636
   m_LockFileStatus:
     m_FilePath: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Packages/packages-lock.json
     m_PathExists: 1
     m_ContentTrackingEnabled: 1
     m_ModificationDate:
       serializedVersion: 2
-      ticks: 639093058190000000
-    m_Hash: 1504929832
+      ticks: 639093081980000000
+    m_Hash: 144538281
 m_EmbeddedPackageManifests:
-  m_ManifestsStatus: {}
+  m_ManifestsStatus:
+    /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Packages/com.geuneda.unity-cli-connector/package.json:
+      m_FilePath: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Packages/com.geuneda.unity-cli-connector/package.json
+      m_PathExists: 1
+      m_ContentTrackingEnabled: 1
+      m_ModificationDate:
+        serializedVersion: 2
+        ticks: 639093024140000000
+      m_Hash: 1616201120
 m_LocalPackages:
-  m_LocalFileStatus:
-  - m_FilePath: /Users/geuneda/Documents/GitHub/unity-cli/unity-connector/package.json
-    m_PathExists: 1
-    m_ContentTrackingEnabled: 1
-    m_ModificationDate:
-      serializedVersion: 2
-      ticks: 639093024140000000
-    m_Hash: 1616201120
-  - m_FilePath: /Users/geuneda/Documents/GitHub/unity-cli/unity-connector
-    m_PathExists: 1
-    m_ContentTrackingEnabled: 1
-    m_ModificationDate:
-      serializedVersion: 2
-      ticks: 0
-    m_Hash: 0
+  m_LocalFileStatus: []
 m_ProjectPath: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Packages
 m_EditorVersion: 6000.3.11f1 (3000ef702840)
 m_ResolvedPackages:
-- packageId: com.geuneda.unity-cli-connector@file:/Users/geuneda/Documents/GitHub/unity-cli/unity-connector
+- packageId: com.unity.inputsystem@1.19.0
   testable: 0
   isDirectDependency: 1
-  version: 0.1.0
-  source: 4
-  resolvedPath: /Users/geuneda/Documents/GitHub/unity-cli/unity-connector
-  assetPath: Packages/com.geuneda.unity-cli-connector
-  name: com.geuneda.unity-cli-connector
-  displayName: Unity CLI Connector
+  version: 1.19.0
+  source: 1
+  resolvedPath: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.inputsystem@21a28c3a6c83
+  assetPath: Packages/com.unity.inputsystem
+  name: com.unity.inputsystem
+  displayName: Input System
   author:
-    name: geuneda
+    name: 
     email: 
     url: 
   category: 
   type: 
-  description: HTTP bridge that exposes scene, GameObject, asset, package, test,
-    editor, resource and event operations to unity-cli.
+  description: A new input system which can be used as a more extensible and customizable
+    alternative to Unity's classic input system in UnityEngine.Input.
   errors: []
   versions:
-    all: []
-    compatible: []
-    recommended: 
+    all:
+    - 0.1.2-preview
+    - 0.2.0-preview
+    - 0.2.1-preview
+    - 0.2.6-preview
+    - 0.2.8-preview
+    - 0.2.10-preview
+    - 0.9.0-preview
+    - 0.9.1-preview
+    - 0.9.2-preview
+    - 0.9.3-preview
+    - 0.9.4-preview
+    - 0.9.5-preview
+    - 0.9.6-preview
+    - 1.0.0-preview
+    - 1.0.0-preview.1
+    - 1.0.0-preview.2
+    - 1.0.0-preview.3
+    - 1.0.0-preview.4
+    - 1.0.0-preview.5
+    - 1.0.0-preview.6
+    - 1.0.0-preview.7
+    - 1.0.0
+    - 1.0.1
+    - 1.0.2
+    - 1.1.0-pre.5
+    - 1.1.0-pre.6
+    - 1.1.0-preview.1
+    - 1.1.0-preview.2
+    - 1.1.0-preview.3
+    - 1.1.1
+    - 1.2.0
+    - 1.3.0
+    - 1.4.1
+    - 1.4.2
+    - 1.4.3
+    - 1.4.4
+    - 1.5.0
+    - 1.5.1
+    - 1.6.1
+    - 1.6.3
+    - 1.7.0
+    - 1.8.0-pre.1
+    - 1.8.0-pre.2
+    - 1.8.0
+    - 1.8.1
+    - 1.8.2
+    - 1.9.0
+    - 1.10.0
+    - 1.11.0
+    - 1.11.1
+    - 1.11.2
+    - 1.12.0
+    - 1.13.0
+    - 1.13.1
+    - 1.14.0
+    - 1.14.1
+    - 1.14.2
+    - 1.15.0
+    - 1.16.0
+    - 1.17.0
+    - 1.18.0
+    - 1.19.0
+    compatible:
+    - 1.19.0
+    recommended: 1.19.0
     deprecated: []
   dependencies:
-  - name: com.unity.ugui
+  - name: com.unity.modules.uielements
     version: 1.0.0
-  - name: com.unity.test-framework
-    version: 1.6.0
-  - name: com.unity.nuget.newtonsoft-json
-    version: 3.2.1
   resolvedDependencies:
-  - name: com.unity.ugui
-    version: 2.0.0
+  - name: com.unity.modules.uielements
+    version: 1.0.0
   - name: com.unity.modules.ui
     version: 1.0.0
   - name: com.unity.modules.imgui
     version: 1.0.0
-  - name: com.unity.test-framework
-    version: 1.6.0
-  - name: com.unity.ext.nunit
-    version: 2.0.5
   - name: com.unity.modules.jsonserialize
     version: 1.0.0
-  - name: com.unity.nuget.newtonsoft-json
-    version: 3.2.2
-  keywords: []
+  - name: com.unity.modules.hierarchycore
+    version: 1.0.0
+  - name: com.unity.modules.physics
+    version: 1.0.0
+  keywords:
+  - input
+  - events
+  - keyboard
+  - mouse
+  - gamepad
+  - touch
+  - vr
+  - xr
   registry:
     id: main
     name: 
@@ -95,35 +154,48 @@ m_ResolvedPackages:
       violations: []
   hideInEditor: 1
   entitlements:
-    licensingModel: 0
+    licensingModel: 1
   isAssetStorePackage: 0
-  datePublishedTicks: 0
-  documentationUrl: 
-  hasRepository: 0
+  datePublishedTicks: 639075089033030000
+  documentationUrl: https://docs.unity3d.com/Packages/com.unity.inputsystem@1.19/manual/index.html
+  hasRepository: 1
   repository:
-    type: 
-    url: 
-    revision: 
+    type: git
+    url: https://github.com/Unity-Technologies/InputSystem.git
+    revision: ca8d898356596a91bda6505e506cc1a4bb3a9fa6
     path: 
   unityLifecycle:
-    version: 
+    version: 1.19.0
     nextVersion: 
     recommendedVersion: 
     isDeprecated: 0
     deprecationMessage: 
-    isDiscoverable: 0
+    isDiscoverable: 1
   isDeprecated: 0
   deprecationMessage: 
   git:
     hash: 
     revision: 
-  upmReserved: 
+  upmReserved: '{"changelog":"### Changed\n\n- Reverted the deprecation of the USE_IMGUI_EDITOR_FOR_ASSETS
+    feature option (ISX-2397).\n- Updated `m_ActionAssetInstanceID` in PlayerInputEditor.cs
+    to use `EntityId` instead of `InstanceID`.\n- Consecutive wildcard characters
+    (''*'') used in input control-paths are now collapsed into a single wildcard
+    when multiple consecutive wildcard characters are present.\n\n### Fixed\n\n-
+    Fixed the `Auto-Save` toggle button with some extra pixels to align the text
+    in the window better.\n- Align title font size with toolbar style in `Input Action`
+    window.\n- Updated Action Properties headers to use colors consistent with GameObject
+    component headers.\n- Fixed misaligned Virtual Cursor when changing resolution
+    [ISXB-1119](https://issuetracker.unity3d.com/product/unity/issues/guid/ISXB-1119)\n-
+    Fixed an issue where `IndexOutOfRangeException` was thrown from `InputManagerStateMonitors.AddStateChangeMonitor`
+    when attempting to enable an action map from within an `InputAction.cancel` callback
+    when using control schemes. (ISXB-1767).\n\n### Added\n\n- Added `keywords` for
+    InputSystem project settings window."}'
   signature:
-    status: 0
-    reason: 
+    status: 1
+    reason: Signature is ok
     attestation:
-      format: 
-      publishingChannel: 
+      format: archive
+      publishingChannel: unity
       entitlementKeys: []
       ownerOrgName: 
       ownerOrgId: 
@@ -131,10 +203,10 @@ m_ResolvedPackages:
     errorCode: 
   assetStore:
     productId: 
-  fingerprint: 
+  fingerprint: 21a28c3a6c83903a93cf15d7d0714b773c50fdf6
   editorCompatibility:
     compatibilityLevel: 0
-    minimumPackageVersion: 
+    minimumPackageVersion: 1.19.0
     minimumUnityVersion: 2022.3
   compliance:
     status: 0
@@ -3511,6 +3583,332 @@ m_ResolvedPackages:
       scopePatternExpression: 
       message: 
       readMoreLink: 
+- packageId: com.geuneda.unity-cli-connector@file:/Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Packages/com.geuneda.unity-cli-connector
+  testable: 1
+  isDirectDependency: 1
+  version: 0.1.0
+  source: 3
+  resolvedPath: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Packages/com.geuneda.unity-cli-connector
+  assetPath: Packages/com.geuneda.unity-cli-connector
+  name: com.geuneda.unity-cli-connector
+  displayName: Unity CLI Connector
+  author:
+    name: geuneda
+    email: 
+    url: 
+  category: 
+  type: 
+  description: HTTP bridge that exposes scene, GameObject, asset, package, test,
+    editor, resource and event operations to unity-cli.
+  errors: []
+  versions:
+    all: []
+    compatible: []
+    recommended: 
+    deprecated: []
+  dependencies:
+  - name: com.unity.ugui
+    version: 1.0.0
+  - name: com.unity.test-framework
+    version: 1.6.0
+  - name: com.unity.nuget.newtonsoft-json
+    version: 3.2.1
+  resolvedDependencies:
+  - name: com.unity.ugui
+    version: 2.0.0
+  - name: com.unity.modules.ui
+    version: 1.0.0
+  - name: com.unity.modules.imgui
+    version: 1.0.0
+  - name: com.unity.test-framework
+    version: 1.6.0
+  - name: com.unity.ext.nunit
+    version: 2.0.5
+  - name: com.unity.modules.jsonserialize
+    version: 1.0.0
+  - name: com.unity.nuget.newtonsoft-json
+    version: 3.2.2
+  keywords: []
+  registry:
+    id: main
+    name: 
+    url: https://packages.unity.com
+    scopes: []
+    isDefault: 1
+    capabilities: 7
+    configSource: 0
+    compliance:
+      status: 0
+      violations: []
+  hideInEditor: 1
+  entitlements:
+    licensingModel: 0
+  isAssetStorePackage: 0
+  datePublishedTicks: 0
+  documentationUrl: 
+  hasRepository: 0
+  repository:
+    type: 
+    url: 
+    revision: 
+    path: 
+  unityLifecycle:
+    version: 
+    nextVersion: 
+    recommendedVersion: 
+    isDeprecated: 0
+    deprecationMessage: 
+    isDiscoverable: 0
+  isDeprecated: 0
+  deprecationMessage: 
+  git:
+    hash: 
+    revision: 
+  upmReserved: 
+  signature:
+    status: 0
+    reason: 
+    attestation:
+      format: 
+      publishingChannel: 
+      entitlementKeys: []
+      ownerOrgName: 
+      ownerOrgId: 
+      publisherName: 
+    errorCode: 
+  assetStore:
+    productId: 
+  fingerprint: 
+  editorCompatibility:
+    compatibilityLevel: 0
+    minimumPackageVersion: 
+    minimumUnityVersion: 2022.3
+  compliance:
+    status: 0
+    violation:
+      scopePatternExpression: 
+      message: 
+      readMoreLink: 
+- packageId: com.unity.ugui@2.0.0
+  testable: 0
+  isDirectDependency: 0
+  version: 2.0.0
+  source: 2
+  resolvedPath: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.ugui@f17df9b1ab21
+  assetPath: Packages/com.unity.ugui
+  name: com.unity.ugui
+  displayName: uGUI
+  author:
+    name: 
+    email: 
+    url: 
+  category: 
+  type: 
+  description: "uGUI (Unity UI) is a set of tools for developing user interfaces
+    for games and applications. It is a GameObject-based UI system that uses Components
+    and the Game View to arrange, position, and style user interfaces. \u200B You
+    cannot use Unity UI to create or change user interfaces in the Unity Editor."
+  errors: []
+  versions:
+    all:
+    - 2.0.0
+    compatible:
+    - 2.0.0
+    recommended: 2.0.0
+    deprecated: []
+  dependencies:
+  - name: com.unity.modules.ui
+    version: 1.0.0
+  - name: com.unity.modules.imgui
+    version: 1.0.0
+  resolvedDependencies:
+  - name: com.unity.modules.ui
+    version: 1.0.0
+  - name: com.unity.modules.imgui
+    version: 1.0.0
+  keywords:
+  - UI
+  - ugui
+  - Unity UI
+  - Canvas
+  - TextMeshPro
+  - TextMesh Pro
+  - Text
+  - TMP
+  - SDF
+  registry:
+    id: main
+    name: 
+    url: https://packages.unity.com
+    scopes: []
+    isDefault: 1
+    capabilities: 7
+    configSource: 0
+    compliance:
+      status: 0
+      violations: []
+  hideInEditor: 1
+  entitlements:
+    licensingModel: 0
+  isAssetStorePackage: 0
+  datePublishedTicks: 0
+  documentationUrl: 
+  hasRepository: 0
+  repository:
+    type: 
+    url: 
+    revision: 
+    path: 
+  unityLifecycle:
+    version: 2.0.0
+    nextVersion: 
+    recommendedVersion: 
+    isDeprecated: 0
+    deprecationMessage: 
+    isDiscoverable: 1
+  isDeprecated: 0
+  deprecationMessage: 
+  git:
+    hash: 
+    revision: 
+  upmReserved: 
+  signature:
+    status: 0
+    reason: 
+    attestation:
+      format: 
+      publishingChannel: 
+      entitlementKeys: []
+      ownerOrgName: 
+      ownerOrgId: 
+      publisherName: 
+    errorCode: 
+  assetStore:
+    productId: 
+  fingerprint: f17df9b1ab21a9a2156e109eacf8dd2f65d03c8c
+  editorCompatibility:
+    compatibilityLevel: 0
+    minimumPackageVersion: 2.0.0
+    minimumUnityVersion: 2019.2
+  compliance:
+    status: 0
+    violation:
+      scopePatternExpression: 
+      message: 
+      readMoreLink: 
+- packageId: com.unity.nuget.newtonsoft-json@3.2.2
+  testable: 0
+  isDirectDependency: 0
+  version: 3.2.2
+  source: 1
+  resolvedPath: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64
+  assetPath: Packages/com.unity.nuget.newtonsoft-json
+  name: com.unity.nuget.newtonsoft-json
+  displayName: Newtonsoft Json
+  author:
+    name: 
+    email: 
+    url: 
+  category: 
+  type: library
+  description: 'Newtonsoft Json for use in Unity projects and Unity packages. Currently
+    synced to version 13.0.2.
+
+
+    This package is used for advanced json serialization
+    and deserialization. Most Unity users will be better suited using the existing
+    json tools built into Unity.
+
+    To avoid assembly clashes, please use this
+    package if you intend to use Newtonsoft Json.'
+  errors: []
+  versions:
+    all:
+    - 1.0.0-preview.2
+    - 1.0.0-preview.3
+    - 1.0.0-preview.4
+    - 1.0.1-preview.1
+    - 1.1.2
+    - 2.0.0-preview
+    - 2.0.0-preview.1
+    - 2.0.0-preview.2
+    - 2.0.0
+    - 2.0.1-preview.1
+    - 2.0.2
+    - 3.0.1
+    - 3.0.2
+    - 3.1.0
+    - 3.2.0
+    - 3.2.1
+    - 3.2.2
+    compatible:
+    - 3.2.2
+    recommended: 3.2.2
+    deprecated: []
+  dependencies: []
+  resolvedDependencies: []
+  keywords: []
+  registry:
+    id: main
+    name: 
+    url: https://packages.unity.com
+    scopes: []
+    isDefault: 1
+    capabilities: 7
+    configSource: 0
+    compliance:
+      status: 0
+      violations: []
+  hideInEditor: 1
+  entitlements:
+    licensingModel: 1
+  isAssetStorePackage: 0
+  datePublishedTicks: 638971744897690000
+  documentationUrl: 
+  hasRepository: 1
+  repository:
+    type: git
+    url: https://github.cds.internal.unity3d.com/unity/com.unity.nuget.newtonsoft-json.git
+    revision: d8e49aef8979bef617144382052ec2f479645eaf
+    path: 
+  unityLifecycle:
+    version: 3.2.2
+    nextVersion: 
+    recommendedVersion: 
+    isDeprecated: 0
+    deprecationMessage: 
+    isDiscoverable: 0
+  isDeprecated: 0
+  deprecationMessage: 
+  git:
+    hash: 
+    revision: 
+  upmReserved: '{"changelog":"* Fixed Newtonsoft DLL when compiling with netstandard
+    2.0."}'
+  signature:
+    status: 1
+    reason: Signature is ok
+    attestation:
+      format: archive
+      publishingChannel: unity
+      entitlementKeys: []
+      ownerOrgName: 
+      ownerOrgId: 
+      publisherName: 
+    errorCode: 
+  assetStore:
+    productId: 
+  fingerprint: 4dfd81071c6475bb9c114f920bfb4e3fc5e28c6a
+  editorCompatibility:
+    compatibilityLevel: 0
+    minimumPackageVersion: 3.2.2
+    minimumUnityVersion: 2018.4
+  compliance:
+    status: 0
+    violation:
+      scopePatternExpression: 
+      message: 
+      readMoreLink: 
 - packageId: com.unity.modules.subsystems@1.0.0
   testable: 0
   isDirectDependency: 0
@@ -3776,226 +4174,6 @@ m_ResolvedPackages:
     compatibilityLevel: 0
     minimumPackageVersion: 2.0.5
     minimumUnityVersion: 2019.4
-  compliance:
-    status: 0
-    violation:
-      scopePatternExpression: 
-      message: 
-      readMoreLink: 
-- packageId: com.unity.ugui@2.0.0
-  testable: 0
-  isDirectDependency: 0
-  version: 2.0.0
-  source: 2
-  resolvedPath: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.ugui@f17df9b1ab21
-  assetPath: Packages/com.unity.ugui
-  name: com.unity.ugui
-  displayName: uGUI
-  author:
-    name: 
-    email: 
-    url: 
-  category: 
-  type: 
-  description: "uGUI (Unity UI) is a set of tools for developing user interfaces
-    for games and applications. It is a GameObject-based UI system that uses Components
-    and the Game View to arrange, position, and style user interfaces. \u200B You
-    cannot use Unity UI to create or change user interfaces in the Unity Editor."
-  errors: []
-  versions:
-    all:
-    - 2.0.0
-    compatible:
-    - 2.0.0
-    recommended: 2.0.0
-    deprecated: []
-  dependencies:
-  - name: com.unity.modules.ui
-    version: 1.0.0
-  - name: com.unity.modules.imgui
-    version: 1.0.0
-  resolvedDependencies:
-  - name: com.unity.modules.ui
-    version: 1.0.0
-  - name: com.unity.modules.imgui
-    version: 1.0.0
-  keywords:
-  - UI
-  - ugui
-  - Unity UI
-  - Canvas
-  - TextMeshPro
-  - TextMesh Pro
-  - Text
-  - TMP
-  - SDF
-  registry:
-    id: main
-    name: 
-    url: https://packages.unity.com
-    scopes: []
-    isDefault: 1
-    capabilities: 7
-    configSource: 0
-    compliance:
-      status: 0
-      violations: []
-  hideInEditor: 1
-  entitlements:
-    licensingModel: 0
-  isAssetStorePackage: 0
-  datePublishedTicks: 0
-  documentationUrl: 
-  hasRepository: 0
-  repository:
-    type: 
-    url: 
-    revision: 
-    path: 
-  unityLifecycle:
-    version: 2.0.0
-    nextVersion: 
-    recommendedVersion: 
-    isDeprecated: 0
-    deprecationMessage: 
-    isDiscoverable: 1
-  isDeprecated: 0
-  deprecationMessage: 
-  git:
-    hash: 
-    revision: 
-  upmReserved: 
-  signature:
-    status: 0
-    reason: 
-    attestation:
-      format: 
-      publishingChannel: 
-      entitlementKeys: []
-      ownerOrgName: 
-      ownerOrgId: 
-      publisherName: 
-    errorCode: 
-  assetStore:
-    productId: 
-  fingerprint: f17df9b1ab21a9a2156e109eacf8dd2f65d03c8c
-  editorCompatibility:
-    compatibilityLevel: 0
-    minimumPackageVersion: 2.0.0
-    minimumUnityVersion: 2019.2
-  compliance:
-    status: 0
-    violation:
-      scopePatternExpression: 
-      message: 
-      readMoreLink: 
-- packageId: com.unity.nuget.newtonsoft-json@3.2.2
-  testable: 0
-  isDirectDependency: 0
-  version: 3.2.2
-  source: 1
-  resolvedPath: /Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64
-  assetPath: Packages/com.unity.nuget.newtonsoft-json
-  name: com.unity.nuget.newtonsoft-json
-  displayName: Newtonsoft Json
-  author:
-    name: 
-    email: 
-    url: 
-  category: 
-  type: library
-  description: 'Newtonsoft Json for use in Unity projects and Unity packages. Currently
-    synced to version 13.0.2.
-
-
-    This package is used for advanced json serialization
-    and deserialization. Most Unity users will be better suited using the existing
-    json tools built into Unity.
-
-    To avoid assembly clashes, please use this
-    package if you intend to use Newtonsoft Json.'
-  errors: []
-  versions:
-    all:
-    - 1.0.0-preview.2
-    - 1.0.0-preview.3
-    - 1.0.0-preview.4
-    - 1.0.1-preview.1
-    - 1.1.2
-    - 2.0.0-preview
-    - 2.0.0-preview.1
-    - 2.0.0-preview.2
-    - 2.0.0
-    - 2.0.1-preview.1
-    - 2.0.2
-    - 3.0.1
-    - 3.0.2
-    - 3.1.0
-    - 3.2.0
-    - 3.2.1
-    - 3.2.2
-    compatible:
-    - 3.2.2
-    recommended: 3.2.2
-    deprecated: []
-  dependencies: []
-  resolvedDependencies: []
-  keywords: []
-  registry:
-    id: main
-    name: 
-    url: https://packages.unity.com
-    scopes: []
-    isDefault: 1
-    capabilities: 7
-    configSource: 0
-    compliance:
-      status: 0
-      violations: []
-  hideInEditor: 1
-  entitlements:
-    licensingModel: 1
-  isAssetStorePackage: 0
-  datePublishedTicks: 638971744897690000
-  documentationUrl: 
-  hasRepository: 1
-  repository:
-    type: git
-    url: https://github.cds.internal.unity3d.com/unity/com.unity.nuget.newtonsoft-json.git
-    revision: d8e49aef8979bef617144382052ec2f479645eaf
-    path: 
-  unityLifecycle:
-    version: 3.2.2
-    nextVersion: 
-    recommendedVersion: 
-    isDeprecated: 0
-    deprecationMessage: 
-    isDiscoverable: 0
-  isDeprecated: 0
-  deprecationMessage: 
-  git:
-    hash: 
-    revision: 
-  upmReserved: '{"changelog":"* Fixed Newtonsoft DLL when compiling with netstandard
-    2.0."}'
-  signature:
-    status: 1
-    reason: Signature is ok
-    attestation:
-      format: archive
-      publishingChannel: unity
-      entitlementKeys: []
-      ownerOrgName: 
-      ownerOrgId: 
-      publisherName: 
-    errorCode: 
-  assetStore:
-    productId: 
-  fingerprint: 4dfd81071c6475bb9c114f920bfb4e3fc5e28c6a
-  editorCompatibility:
-    compatibilityLevel: 0
-    minimumPackageVersion: 3.2.2
-    minimumUnityVersion: 2018.4
   compliance:
     status: 0
     violation:
