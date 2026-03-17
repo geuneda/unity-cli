@@ -1,0 +1,118 @@
+{
+  "steps": [
+    {
+      "id": "canvas",
+      "call": "ui.canvas.create",
+      "args": {
+        "name": "CliCanvas"
+      }
+    },
+    {
+      "id": "button",
+      "call": "ui.button.create",
+      "args": {
+        "canvasName": "CliCanvas",
+        "name": "CliButton",
+        "text": "Tap Me",
+        "anchoredPosition": [
+          0,
+          0
+        ],
+        "size": [
+          220,
+          80
+        ]
+      }
+    },
+    {
+      "id": "probe",
+      "call": "component.update",
+      "args": {
+        "name": "CliButton",
+        "type": "CliUiProbe"
+      }
+    },
+    {
+      "id": "tap",
+      "call": "ui.click",
+      "args": {
+        "name": "CliButton",
+        "position": [
+          200,
+          200
+        ]
+      }
+    },
+    {
+      "id": "wait-click",
+      "waitFor": {
+        "type": "console.log",
+        "contains": "CliUiProbe click CliButton",
+        "timeoutMs": 2000
+      }
+    },
+    {
+      "id": "drag",
+      "call": "ui.drag",
+      "args": {
+        "name": "CliButton",
+        "from": [
+          150,
+          150
+        ],
+        "to": [
+          400,
+          300
+        ]
+      }
+    },
+    {
+      "id": "wait-drag",
+      "waitFor": {
+        "type": "console.log",
+        "contains": "CliUiProbe end drag CliButton",
+        "timeoutMs": 2000
+      }
+    },
+    {
+      "id": "sprite",
+      "call": "sprite.create",
+      "args": {
+        "name": "CliSprite",
+        "position": [
+          2,
+          1,
+          0
+        ],
+        "color": "#FF8A00FF"
+      }
+    },
+    {
+      "id": "sprite-probe",
+      "call": "component.update",
+      "args": {
+        "name": "CliSprite",
+        "type": "CliUiProbe"
+      }
+    },
+    {
+      "id": "sprite-tap",
+      "call": "input.tap",
+      "args": {
+        "name": "CliSprite",
+        "position": [
+          320,
+          180
+        ]
+      }
+    },
+    {
+      "id": "wait-sprite",
+      "waitFor": {
+        "type": "console.log",
+        "contains": "CliUiProbe click CliSprite",
+        "timeoutMs": 2000
+      }
+    }
+  ]
+}

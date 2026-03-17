@@ -55,7 +55,7 @@ public sealed class CliApplication
                 case "batch":
                     return await RunBatchAsync(client, command.Skip(1).ToArray(), cancellationToken);
                 case "tool":
-                    return await RunToolAsync(client, command.Skip(1).ToArray(), options.Json, cancellationToken);
+                    return await RunToolAsync(client, options, command.Skip(1).ToArray(), cancellationToken);
                 case "resource":
                     return await RunResourceAsync(client, command.Skip(1).ToArray(), options.Json, cancellationToken);
                 default:
@@ -191,7 +191,7 @@ public sealed class CliApplication
         return 0;
     }
 
-    private async Task<int> RunToolAsync(BridgeClient client, string[] args, bool json, CancellationToken cancellationToken)
+    private async Task<int> RunToolAsync(BridgeClient client, GlobalOptions options, string[] args, CancellationToken cancellationToken)
     {
         if (args.Length == 0)
         {
@@ -202,7 +202,7 @@ public sealed class CliApplication
         if (args[0] == "list")
         {
             var tools = await client.ListToolsAsync(cancellationToken);
-            if (json)
+            if (options.Json)
             {
                 _console.WriteLine(JsonHelpers.ToPrettyJson(tools));
             }
@@ -221,6 +221,16 @@ public sealed class CliApplication
         {
             var toolName = args[1];
             var arguments = JsonHelpers.ParseKeyValuePairs(args.Skip(2));
+            if (toolName == "tests.run")
+            {
+                return await RunTestsCommandAsync(client, options, arguments, cancellationToken);
+            }
+
+            if (toolName == "editor.compile")
+            {
+                return await RunCompileCommandAsync(client, options, arguments, cancellationToken);
+            }
+
             var response = await client.CallToolAsync(toolName, arguments, cancellationToken);
             _console.WriteLine(JsonHelpers.ToPrettyJson(response));
             return response.Success ? 0 : 1;
@@ -266,9 +276,120 @@ public sealed class CliApplication
 
         var toolName = $"{args[0]}.{args[1]}";
         var parameters = JsonHelpers.ParseKeyValuePairs(args.Skip(2));
+        if (toolName == "tests.run")
+        {
+            return await RunTestsCommandAsync(client, options, parameters, cancellationToken);
+        }
+
+        if (toolName == "editor.compile")
+        {
+            return await RunCompileCommandAsync(client, options, parameters, cancellationToken);
+        }
+
         var response = await client.CallToolAsync(toolName, parameters, cancellationToken);
         _console.WriteLine(JsonHelpers.ToPrettyJson(response));
         return response.Success ? 0 : 1;
+    }
+
+    private async Task<int> RunTestsCommandAsync(BridgeClient client, GlobalOptions options, JsonObject arguments, CancellationToken cancellationToken)
+    {
+        var startResponse = await client.CallToolAsync("tests.run", arguments, cancellationToken);
+        if (!startResponse.Success)
+        {
+            _console.WriteLine(JsonHelpers.ToPrettyJson(startResponse));
+            return 1;
+        }
+
+        var runId = startResponse.Result?["runId"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(runId))
+        {
+            _console.WriteLine(JsonHelpers.ToPrettyJson(startResponse));
+            return 0;
+        }
+
+        var timeoutMs = Math.Max(options.TimeoutMs, 60000);
+        var deadline = DateTimeOffset.UtcNow.AddMilliseconds(timeoutMs);
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            try
+            {
+                var response = await client.PollEventsAsync(0, 1000, cancellationToken);
+                var completed = response.Events
+                    .LastOrDefault(@event => @event.Type == "tests.completed"
+                        && string.Equals(@event.Data?["runId"]?.GetValue<string>(), runId, StringComparison.OrdinalIgnoreCase));
+
+                if (completed != null)
+                {
+                    var summary = completed.Data?["summary"];
+                    var failed = summary?["failed"]?.GetValue<int>() ?? 0;
+                    var finalResponse = new ToolCallResponse(
+                        failed == 0,
+                        completed.Message,
+                        summary,
+                        new[] { completed });
+                    _console.WriteLine(JsonHelpers.ToPrettyJson(finalResponse));
+                    return failed == 0 ? 0 : 1;
+                }
+            }
+            catch
+            {
+            }
+
+            await Task.Delay(500, cancellationToken);
+        }
+
+        throw new TimeoutException($"Timed out waiting for test completion for run '{runId}'.");
+    }
+
+    private async Task<int> RunCompileCommandAsync(BridgeClient client, GlobalOptions options, JsonObject arguments, CancellationToken cancellationToken)
+    {
+        var startResponse = await client.CallToolAsync("editor.compile", arguments, cancellationToken);
+        if (!startResponse.Success)
+        {
+            _console.WriteLine(JsonHelpers.ToPrettyJson(startResponse));
+            return 1;
+        }
+
+        var compilationId = startResponse.Result?["compilationId"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(compilationId))
+        {
+            _console.WriteLine(JsonHelpers.ToPrettyJson(startResponse));
+            return 0;
+        }
+
+        var timeoutMs = Math.Max(options.TimeoutMs, 120000);
+        var deadline = DateTimeOffset.UtcNow.AddMilliseconds(timeoutMs);
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            try
+            {
+                var response = await client.PollEventsAsync(0, 1000, cancellationToken);
+                var completed = response.Events
+                    .LastOrDefault(@event => @event.Type == "editor.compiled"
+                        && string.Equals(@event.Data?["compilationId"]?.GetValue<string>(), compilationId, StringComparison.OrdinalIgnoreCase));
+
+                if (completed != null)
+                {
+                    var success = completed.Data?["success"]?.GetValue<bool>() ?? false;
+                    var finalResponse = new ToolCallResponse(
+                        success,
+                        completed.Message,
+                        completed.Data,
+                        new[] { completed });
+                    _console.WriteLine(JsonHelpers.ToPrettyJson(finalResponse));
+                    return success ? 0 : 1;
+                }
+            }
+            catch
+            {
+            }
+
+            await Task.Delay(500, cancellationToken);
+        }
+
+        throw new TimeoutException($"Timed out waiting for script compilation completion for '{compilationId}'.");
     }
 
     private static bool IsHelp(string command)
@@ -330,7 +451,7 @@ public sealed class CliApplication
     {
         public string BaseUrl { get; set; } = "http://127.0.0.1:52737";
 
-        public int TimeoutMs { get; set; } = 2000;
+        public int TimeoutMs { get; set; } = 10000;
 
         public bool Json { get; set; }
 

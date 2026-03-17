@@ -1,7 +1,10 @@
 {
   "name": "UnityCliBridge.Editor",
   "rootNamespace": "UnityCliBridge",
-  "references": [],
+  "references": [
+    "UnityEngine.UI",
+    "UnityEditor.TestRunner"
+  ],
   "includePlatforms": [
     "Editor"
   ],

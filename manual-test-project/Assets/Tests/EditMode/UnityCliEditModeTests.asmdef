@@ -1,0 +1,9 @@
+{
+  "name": "UnityCli.ManualTests.EditMode",
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

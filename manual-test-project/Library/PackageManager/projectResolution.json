@@ -29,6 +29,16 @@
       "source": "builtin",
       "testable": false
     },
+    "com.unity.test-framework@1.6.0": {
+      "name": "com.unity.test-framework",
+      "displayName": "Test Framework",
+      "resolvedPath": "/Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.test-framework@0b7a23ab2e1d",
+      "fingerprint": "0b7a23ab2e1d74441a5afdffa63f417929756957",
+      "editorCompatibility": "6000.0.44f1",
+      "version": "1.6.0",
+      "source": "builtin",
+      "testable": false
+    },
     "com.unity.modules.accessibility@1.0.0": {
       "name": "com.unity.modules.accessibility",
       "displayName": "Accessibility",
@@ -314,6 +324,26 @@
       "displayName": "Hierarchy Core",
       "resolvedPath": "/Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.modules.hierarchycore",
       "version": "1.0.0",
+      "source": "builtin",
+      "testable": false
+    },
+    "com.unity.ext.nunit@2.0.5": {
+      "name": "com.unity.ext.nunit",
+      "displayName": "Custom NUnit",
+      "resolvedPath": "/Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.ext.nunit@d8c07649098d",
+      "fingerprint": "d8c07649098d3936da4c8ab500960c1776b44592",
+      "editorCompatibility": "2019.4.0a1",
+      "version": "2.0.5",
+      "source": "builtin",
+      "testable": false
+    },
+    "com.unity.ugui@2.0.0": {
+      "name": "com.unity.ugui",
+      "displayName": "uGUI",
+      "resolvedPath": "/Users/geuneda/Documents/GitHub/unity-cli/manual-test-project/Library/PackageCache/com.unity.ugui@f17df9b1ab21",
+      "fingerprint": "f17df9b1ab21a9a2156e109eacf8dd2f65d03c8c",
+      "editorCompatibility": "2019.2.0a1",
+      "version": "2.0.0",
       "source": "builtin",
       "testable": false
     },

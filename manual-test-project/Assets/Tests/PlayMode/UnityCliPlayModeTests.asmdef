@@ -1,0 +1,6 @@
+{
+  "name": "UnityCli.ManualTests.PlayMode",
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
