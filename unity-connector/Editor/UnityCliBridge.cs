@@ -48,7 +48,7 @@ public static class UnityCliBridgeServer
         "tests.list", "tests.run",
         "console.get", "console.clear", "console.send",
         "ui.canvas.create", "ui.button.create", "ui.text.create", "ui.image.create", "ui.toggle.create", "ui.slider.create", "ui.scrollrect.create", "ui.inputfield.create",
-        "ui.toggle.set", "ui.slider.set", "ui.scrollrect.set", "ui.inputfield.set-text",
+        "ui.toggle.set", "ui.slider.set", "ui.scrollrect.set", "ui.inputfield.set-text", "ui.focus", "ui.blur",
         "ui.click", "ui.double-click", "ui.long-press", "ui.drag", "ui.swipe",
         "input.tap", "input.double-tap", "input.long-press", "input.drag", "input.swipe",
         "menu.execute",
@@ -157,6 +157,7 @@ public static class UnityCliBridgeServer
                     projectPath = Directory.GetCurrentDirectory(),
                     eventCursor = _cursor,
                     capabilities = ToolNames,
+                    sessionId = SessionId,
                 });
                 return;
             }
@@ -167,7 +168,7 @@ public static class UnityCliBridgeServer
                 {
                     tools = ToolNames,
                     resources = new[] { "editor/state", "scene/active", "scene/hierarchy", "ui/hierarchy", "console/logs", "tests/catalog", "packages/list" },
-                    events = new[] { "scene.changed", "hierarchy.changed", "selection.changed", "component.changed", "asset.changed", "package.changed", "tests.started", "tests.completed", "console.log", "ui.clicked", "ui.double_clicked", "ui.long_pressed", "ui.dragged", "ui.swiped", "input.tapped", "input.double_tapped", "input.long_pressed", "input.dragged", "input.swiped", "editor.play_mode_changed", "editor.pause_changed", "editor.refreshed", "editor.compilation_started", "editor.compiled", "menu.executed" },
+                    events = new[] { "scene.changed", "hierarchy.changed", "selection.changed", "component.changed", "asset.changed", "package.changed", "tests.started", "tests.completed", "console.log", "ui.focused", "ui.blurred", "ui.clicked", "ui.double_clicked", "ui.long_pressed", "ui.dragged", "ui.swiped", "input.tapped", "input.double_tapped", "input.long_pressed", "input.dragged", "input.swiped", "editor.play_mode_changed", "editor.pause_changed", "editor.refreshed", "editor.compilation_started", "editor.compiled", "menu.executed" },
                     metadata = new Dictionary<string, string> { ["transport"] = "http", ["unity"] = Application.unityVersion },
                 });
                 return;
@@ -627,6 +628,29 @@ public static class UnityCliBridgeServer
                 Emit("component.changed", $"InputField changed: {inputField.gameObject.name}", new JObject { ["id"] = inputField.gameObject.GetInstanceID(), ["text"] = inputField.text });
                 return Success(UiObject(inputField.gameObject), "InputField updated.");
             }),
+            "ui.focus" => await OnMainThreadAsync(() =>
+            {
+                var gameObject = FindGameObject(arguments);
+                FocusUiTarget(gameObject);
+                Emit("ui.focused", $"UI focused: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name });
+                return Success(UiObject(gameObject), "UI focus updated.");
+            }),
+            "ui.blur" => await OnMainThreadAsync(() =>
+            {
+                var previous = ClearUiFocus();
+                Emit("ui.blurred", previous == null ? "UI focus cleared." : $"UI blurred: {previous.name}", new JObject
+                {
+                    ["id"] = previous != null ? previous.GetInstanceID() : 0,
+                    ["name"] = previous != null ? previous.name : string.Empty,
+                });
+                return Success(new JObject
+                {
+                    ["cleared"] = true,
+                    ["previousId"] = previous != null ? previous.GetInstanceID() : 0,
+                    ["previousName"] = previous != null ? previous.name : string.Empty,
+                    ["editorState"] = JObject.FromObject(EditorState()),
+                }, "UI focus cleared.");
+            }),
             "ui.click" => await OnMainThreadAsync(() =>
             {
                 return Success(DispatchTap(arguments, "ui.clicked", uiOnly: true), "UI click dispatched.");
@@ -724,12 +748,15 @@ public static class UnityCliBridgeServer
 
     private static object EditorState()
     {
+        var currentSelected = EnsureEventSystem().currentSelectedGameObject;
         return new
         {
             isPlaying = EditorApplication.isPlaying,
             isPlayingOrWillChangePlaymode = EditorApplication.isPlayingOrWillChangePlaymode,
             isPaused = EditorApplication.isPaused,
             selectedObjectId = Selection.activeGameObject != null ? Selection.activeGameObject.GetInstanceID() : 0,
+            eventSystemSelectedObjectId = currentSelected != null ? currentSelected.GetInstanceID() : 0,
+            eventSystemSelectedObjectName = currentSelected != null ? currentSelected.name : string.Empty,
             activeScenePath = SceneManager.GetActiveScene().path,
         };
     }
@@ -801,6 +828,7 @@ public static class UnityCliBridgeServer
         result["isCanvas"] = canvas != null;
         result["isSelectable"] = selectable != null;
         result["selectableType"] = selectable != null ? selectable.GetType().Name : null;
+        result["isSelected"] = IsSelectedByEventSystem(gameObject);
         result["text"] = text != null ? text.text : null;
 
         if (toggle != null)
@@ -828,6 +856,9 @@ public static class UnityCliBridgeServer
             {
                 ["horizontal"] = scrollRect.horizontal,
                 ["vertical"] = scrollRect.vertical,
+                ["inertia"] = scrollRect.inertia,
+                ["movementType"] = scrollRect.movementType.ToString(),
+                ["velocity"] = new JArray(scrollRect.velocity.x, scrollRect.velocity.y),
                 ["normalizedPosition"] = new JArray(scrollRect.normalizedPosition.x, scrollRect.normalizedPosition.y),
             };
         }
@@ -839,6 +870,10 @@ public static class UnityCliBridgeServer
                 ["text"] = inputField.text,
                 ["interactable"] = inputField.interactable,
                 ["lineType"] = inputField.lineType.ToString(),
+                ["isFocused"] = inputField.isFocused,
+                ["caretPosition"] = inputField.caretPosition,
+                ["selectionAnchorPosition"] = inputField.selectionAnchorPosition,
+                ["selectionFocusPosition"] = inputField.selectionFocusPosition,
             };
         }
 
@@ -1809,6 +1844,46 @@ public static class UnityCliBridgeServer
         return eventSystemObject.GetComponent<EventSystem>();
     }
 
+    private static bool IsSelectedByEventSystem(GameObject gameObject)
+    {
+        var currentSelected = EnsureEventSystem().currentSelectedGameObject;
+        return currentSelected == gameObject;
+    }
+
+    private static void FocusUiTarget(GameObject gameObject)
+    {
+        var eventSystem = EnsureEventSystem();
+        if (eventSystem.currentSelectedGameObject == gameObject)
+        {
+            if (gameObject.TryGetComponent<InputField>(out var existingInputField))
+            {
+                existingInputField.ActivateInputField();
+            }
+
+            return;
+        }
+
+        eventSystem.SetSelectedGameObject(gameObject);
+        if (gameObject.TryGetComponent<InputField>(out var inputField))
+        {
+            inputField.ActivateInputField();
+            inputField.MoveTextEnd(false);
+        }
+    }
+
+    private static GameObject? ClearUiFocus()
+    {
+        var eventSystem = EnsureEventSystem();
+        var previous = eventSystem.currentSelectedGameObject;
+        if (previous != null && previous.TryGetComponent<InputField>(out var inputField))
+        {
+            inputField.DeactivateInputField();
+        }
+
+        eventSystem.SetSelectedGameObject(null);
+        return previous;
+    }
+
     private static GameObject CreateUiImageChild(Transform parent, string name, Color color)
     {
         var imageObject = new GameObject(name, typeof(RectTransform), typeof(Image));
@@ -1854,19 +1929,28 @@ public static class UnityCliBridgeServer
         var worldPosition = ResolveWorldPosition(arguments, "worldPosition", position);
         var target = FindInteractionTarget(arguments, position, worldPosition, uiOnly);
         var gameObject = target.GameObject;
-        var eventData = CreatePointerEventData(gameObject, target, position);
+        var pointerId = arguments["pointerId"]?.Value<int?>() ?? -1;
+        var eventData = CreatePointerEventData(gameObject, target, position, pointerId);
+        eventData.clickCount = 1;
+        eventData.clickTime = (float)EditorApplication.timeSinceStartup;
+
+        if (uiOnly)
+        {
+            FocusUiTarget(gameObject);
+        }
 
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerEnterHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerDownHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerUpHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerClickHandler);
 
-        Emit(eventType, $"Pointer tap: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name });
+        Emit(eventType, $"Pointer tap: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["pointerId"] = pointerId });
         return new JObject
         {
             ["id"] = gameObject.GetInstanceID(),
             ["name"] = gameObject.name,
             ["position"] = new JArray(position.x, position.y),
+            ["pointerId"] = pointerId,
         };
     }
 
@@ -1876,17 +1960,24 @@ public static class UnityCliBridgeServer
         var worldPosition = ResolveWorldPosition(arguments, "worldPosition", position);
         var target = FindInteractionTarget(arguments, position, worldPosition, uiOnly);
         var gameObject = target.GameObject;
+        var pointerId = arguments["pointerId"]?.Value<int?>() ?? -1;
 
-        DispatchSingleTap(gameObject, target, position, 1);
-        DispatchSingleTap(gameObject, target, position, 2);
+        if (uiOnly)
+        {
+            FocusUiTarget(gameObject);
+        }
 
-        Emit(eventType, $"Pointer double tap: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["clickCount"] = 2 });
+        DispatchSingleTap(gameObject, target, position, 1, pointerId);
+        DispatchSingleTap(gameObject, target, position, 2, pointerId);
+
+        Emit(eventType, $"Pointer double tap: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["clickCount"] = 2, ["pointerId"] = pointerId });
         return new JObject
         {
             ["id"] = gameObject.GetInstanceID(),
             ["name"] = gameObject.name,
             ["position"] = new JArray(position.x, position.y),
             ["clickCount"] = 2,
+            ["pointerId"] = pointerId,
         };
     }
 
@@ -1897,7 +1988,13 @@ public static class UnityCliBridgeServer
         var target = FindInteractionTarget(arguments, position, worldPosition, uiOnly);
         var gameObject = target.GameObject;
         var durationMs = Math.Max(arguments["durationMs"]?.Value<int?>() ?? 600, 100);
-        var eventData = CreatePointerEventData(gameObject, target, position);
+        var pointerId = arguments["pointerId"]?.Value<int?>() ?? -1;
+        var eventData = CreatePointerEventData(gameObject, target, position, pointerId);
+
+        if (uiOnly)
+        {
+            FocusUiTarget(gameObject);
+        }
 
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerEnterHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerDownHandler);
@@ -1911,13 +2008,14 @@ public static class UnityCliBridgeServer
         eventData.clickTime = (float)EditorApplication.timeSinceStartup;
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerUpHandler);
 
-        Emit(eventType, $"Pointer long press: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["durationMs"] = durationMs });
+        Emit(eventType, $"Pointer long press: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["durationMs"] = durationMs, ["pointerId"] = pointerId });
         return new JObject
         {
             ["id"] = gameObject.GetInstanceID(),
             ["name"] = gameObject.name,
             ["position"] = new JArray(position.x, position.y),
             ["durationMs"] = durationMs,
+            ["pointerId"] = pointerId,
         };
     }
 
@@ -1928,10 +2026,16 @@ public static class UnityCliBridgeServer
         var worldFrom = ResolveWorldPosition(arguments, "worldFrom", from);
         var target = FindInteractionTarget(arguments, from, worldFrom, uiOnly);
         var gameObject = target.GameObject;
-        var eventData = CreatePointerEventData(gameObject, target, from);
+        var pointerId = arguments["pointerId"]?.Value<int?>() ?? -1;
+        var eventData = CreatePointerEventData(gameObject, target, from, pointerId);
         eventData.delta = Vector2.zero;
         eventData.useDragThreshold = false;
         eventData.pointerDrag = gameObject;
+
+        if (uiOnly)
+        {
+            FocusUiTarget(gameObject);
+        }
 
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerEnterHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.initializePotentialDrag);
@@ -1944,19 +2048,20 @@ public static class UnityCliBridgeServer
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.endDragHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerUpHandler);
 
-        Emit(eventType, $"Pointer drag: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name });
+        Emit(eventType, $"Pointer drag: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["pointerId"] = pointerId });
         return new JObject
         {
             ["id"] = gameObject.GetInstanceID(),
             ["name"] = gameObject.name,
             ["from"] = new JArray(from.x, from.y),
             ["to"] = new JArray(to.x, to.y),
+            ["pointerId"] = pointerId,
         };
     }
 
-    private static void DispatchSingleTap(GameObject gameObject, InteractionTarget target, Vector2 position, int clickCount)
+    private static void DispatchSingleTap(GameObject gameObject, InteractionTarget target, Vector2 position, int clickCount, int pointerId)
     {
-        var eventData = CreatePointerEventData(gameObject, target, position);
+        var eventData = CreatePointerEventData(gameObject, target, position, pointerId);
         eventData.clickCount = clickCount;
         eventData.clickTime = (float)EditorApplication.timeSinceStartup;
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerEnterHandler);
@@ -1965,12 +2070,12 @@ public static class UnityCliBridgeServer
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerClickHandler);
     }
 
-    private static PointerEventData CreatePointerEventData(GameObject gameObject, InteractionTarget target, Vector2 position)
+    private static PointerEventData CreatePointerEventData(GameObject gameObject, InteractionTarget target, Vector2 position, int pointerId)
     {
         var eventData = new PointerEventData(EnsureEventSystem())
         {
             button = PointerEventData.InputButton.Left,
-            pointerId = -1,
+            pointerId = pointerId,
             position = position,
             pressPosition = position,
             pointerEnter = gameObject,

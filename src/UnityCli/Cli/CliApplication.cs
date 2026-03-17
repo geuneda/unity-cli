@@ -108,6 +108,10 @@ public sealed class CliApplication
         _console.WriteLine($"editor: {status.EditorVersion}");
         _console.WriteLine($"project: {status.ProjectPath}");
         _console.WriteLine($"eventCursor: {status.EventCursor}");
+        if (!string.IsNullOrWhiteSpace(status.SessionId))
+        {
+            _console.WriteLine($"sessionId: {status.SessionId}");
+        }
         return 0;
     }
 

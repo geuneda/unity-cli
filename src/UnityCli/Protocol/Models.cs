@@ -9,7 +9,8 @@ public sealed record BridgeStatus(
     string EditorVersion,
     string? ProjectPath,
     long EventCursor,
-    IReadOnlyList<string> Capabilities);
+    IReadOnlyList<string> Capabilities,
+    string? SessionId = null);
 
 public sealed record CapabilityResponse(
     IReadOnlyList<string> Tools,

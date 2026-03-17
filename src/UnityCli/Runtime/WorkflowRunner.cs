@@ -79,6 +79,12 @@ public sealed class WorkflowRunner
         while (DateTimeOffset.UtcNow - startedAt < TimeSpan.FromMilliseconds(waitCondition.TimeoutMs))
         {
             var response = await _client.PollEventsAsync(after, 250, cancellationToken);
+            if (response.Cursor < after)
+            {
+                after = 0;
+                response = await _client.PollEventsAsync(after, 250, cancellationToken);
+            }
+
             after = response.Cursor;
             if (response.Events.Count > 0)
             {

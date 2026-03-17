@@ -13,6 +13,7 @@ AVAILABLE_STAGES=(
   "ui-input"
   "tests"
   "editor-lifecycle"
+  "resilience"
 )
 
 SELECTED_STAGES=()
@@ -39,6 +40,7 @@ Stages:
   ui-input
   tests
   editor-lifecycle
+  resilience
 EOF
 }
 
@@ -85,6 +87,18 @@ json_cli() {
   output="$(run_cli "$@")"
   printf '%s\n' "$output" >&2
   printf '%s' "$output"
+}
+
+ensure_bridge_capability() {
+  local capability="$1"
+  local capabilities_json
+  capabilities_json="$(json_cli --json capabilities)"
+  if [[ "$capabilities_json" == *"\"$capability\""* ]]; then
+    return 0
+  fi
+
+  run_cli editor refresh >/dev/null
+  run_cli --timeout-ms=240000 editor compile >/dev/null
 }
 
 assert_contains() {
@@ -303,9 +317,12 @@ stage_core() {
 
 stage_ui_input() {
   local ui_double_click_json ui_long_press_json ui_swipe_json input_double_tap_json input_long_press_json input_swipe_json
-  local toggle_json slider_json scrollrect_json inputfield_json ui_hierarchy_json console_json events_json ui_scene
+  local toggle_json slider_json scrollrect_json inputfield_json focus_json blur_json toggle_focus_json ui_pointer_json scroll_drag_json
+  local ui_hierarchy_json ui_hierarchy_after_scroll_json editor_state_json blur_state_json console_json events_json ui_scene
+  local scroll_before_vertical scroll_after_vertical
 
   ui_scene="Assets/Scenes/CliUiCoverage.unity"
+  ensure_bridge_capability "ui.focus"
 
   run_cli scene create path="$ui_scene" >/dev/null
   run_cli console clear >/dev/null
@@ -319,6 +336,9 @@ stage_ui_input() {
   run_cli ui text.create canvasName=CliCanvas name=CliText text=Coverage anchoredPosition=0,120 size=280,48 >/dev/null
   run_cli ui image.create canvasName=CliCanvas name=CliImage anchoredPosition=0,-120 size=96,96 color=#66CCFFFF >/dev/null
   run_cli component update name=CliButton type=CliUiProbe >/dev/null
+  run_cli component update name=CliToggle type=CliUiProbe >/dev/null
+  run_cli component update name=CliScroll type=CliUiProbe >/dev/null
+  run_cli component update name=CliInput type=CliUiProbe >/dev/null
 
   run_cli sprite create name=CliSprite position=2,1,0 color=#FF8A00FF >/dev/null
   run_cli component update name=CliSprite type=CliUiProbe >/dev/null
@@ -340,8 +360,27 @@ stage_ui_input() {
   assert_contains "$ui_hierarchy_json" "\"name\": \"CliSlider\""
   assert_contains "$ui_hierarchy_json" "\"name\": \"CliScroll\""
   assert_contains "$ui_hierarchy_json" "\"name\": \"CliInput\""
+  scroll_before_vertical="$(jq -r '.data.items[] | select(.name=="CliScroll") | .scrollRect.normalizedPosition[1]' <<<"$ui_hierarchy_json" | head -n1)"
 
   run_cli console clear >/dev/null
+
+  focus_json="$(json_cli ui focus name=CliInput)"
+  assert_contains "$focus_json" "\"isSelected\": true"
+
+  editor_state_json="$(json_cli resource get editor/state)"
+  assert_contains "$editor_state_json" "\"eventSystemSelectedObjectName\": \"CliInput\""
+
+  toggle_focus_json="$(json_cli ui focus name=CliToggle)"
+  assert_contains "$toggle_focus_json" "\"isSelected\": true"
+
+  blur_json="$(json_cli ui blur)"
+  assert_contains "$blur_json" "\"cleared\": true"
+
+  blur_state_json="$(json_cli resource get editor/state)"
+  assert_contains "$blur_state_json" "\"eventSystemSelectedObjectId\": 0"
+
+  ui_pointer_json="$(json_cli ui click name=CliButton pointerId=21)"
+  assert_contains "$ui_pointer_json" "\"pointerId\": 21"
 
   ui_double_click_json="$(json_cli ui double-click normalizedPosition=0.5,0.5)"
   assert_contains "$ui_double_click_json" "\"clickCount\": 2"
@@ -352,22 +391,47 @@ stage_ui_input() {
   ui_swipe_json="$(json_cli ui swipe normalizedFrom=0.5,0.5 normalizedTo=0.72,0.64)"
   assert_contains "$ui_swipe_json" "CliButton"
 
-  input_double_tap_json="$(json_cli input double-tap worldPosition=2,1,0)"
+  scroll_drag_json="$(json_cli ui drag name=CliScroll pointerId=31 from=960,1520 to=960,1380)"
+  assert_contains "$scroll_drag_json" "\"pointerId\": 31"
+
+  ui_hierarchy_after_scroll_json="$(json_cli resource get ui/hierarchy)"
+  scroll_after_vertical="$(jq -r '.data.items[] | select(.name=="CliScroll") | .scrollRect.normalizedPosition[1]' <<<"$ui_hierarchy_after_scroll_json" | head -n1)"
+  if [[ "$scroll_after_vertical" == "$scroll_before_vertical" ]]; then
+    printf 'Expected ScrollRect drag to change normalizedPosition.\n' >&2
+    return 1
+  fi
+
+  input_double_tap_json="$(json_cli input double-tap worldPosition=2,1,0 pointerId=7)"
   assert_contains "$input_double_tap_json" "\"clickCount\": 2"
+  assert_contains "$input_double_tap_json" "\"pointerId\": 7"
 
-  input_long_press_json="$(json_cli input long-press worldPosition=2,1,0 durationMs=700)"
+  input_long_press_json="$(json_cli input long-press worldPosition=2,1,0 durationMs=700 pointerId=8)"
   assert_contains "$input_long_press_json" "\"durationMs\": 700"
+  assert_contains "$input_long_press_json" "\"pointerId\": 8"
 
-  input_swipe_json="$(json_cli input swipe worldFrom=2,1,0 worldTo=2.75,1,0)"
+  input_swipe_json="$(json_cli input swipe worldFrom=2,1,0 worldTo=2.75,1,0 pointerId=9)"
   assert_contains "$input_swipe_json" "CliSprite"
+  assert_contains "$input_swipe_json" "\"pointerId\": 9"
 
   console_json="$(json_cli console get)"
-  assert_contains "$console_json" "CliUiProbe click CliButton count=2 clickCount=2"
+  assert_contains "$console_json" "CliUiProbe select CliInput"
+  assert_contains "$console_json" "CliUiProbe deselect CliInput"
+  assert_contains "$console_json" "CliUiProbe select CliToggle"
+  assert_contains "$console_json" "CliUiProbe click CliButton count=1 clickCount=1 pointerId=21"
+  assert_contains "$console_json" "CliUiProbe click CliButton count=3 clickCount=2"
   assert_contains "$console_json" "CliUiProbe up CliButton"
   assert_contains "$console_json" "heldMs="
-  assert_contains "$console_json" "CliUiProbe click CliSprite count=2 clickCount=2"
+  assert_contains "$console_json" "CliUiProbe begin drag CliScroll pointerId=31"
+  assert_contains "$console_json" "CliUiProbe drag CliScroll delta="
+  assert_contains "$console_json" "pointerId=31"
+  assert_contains "$console_json" "CliUiProbe click CliSprite count=2 clickCount=2 pointerId=7"
+  assert_contains "$console_json" "CliUiProbe up CliSprite count=3 heldMs="
+  assert_contains "$console_json" "pointerId=8"
+  assert_contains "$console_json" "CliUiProbe end drag CliSprite count=1 pointerId=9"
 
   events_json="$(json_cli events tail after=0)"
+  assert_contains "$events_json" "ui.focused"
+  assert_contains "$events_json" "ui.blurred"
   assert_contains "$events_json" "ui.double_clicked"
   assert_contains "$events_json" "ui.long_pressed"
   assert_contains "$events_json" "ui.swiped"
@@ -424,6 +488,54 @@ stage_editor_lifecycle() {
   run_cli scene delete path="$unload_scene" >/dev/null
 }
 
+stage_resilience() {
+  local compile_status compile_session_id play_status stop_status
+  local compile_pid play_pid stop_pid
+
+  run_cli editor stop >/dev/null || true
+  compile_status="$(json_cli --json status)"
+  compile_session_id="$(jq -r '.sessionId // empty' <<<"$compile_status")"
+  if [[ -z "$compile_session_id" || "$compile_session_id" == "null" ]]; then
+    printf 'Expected status to include a non-null sessionId.\n' >&2
+    return 1
+  fi
+
+  run_cli --timeout-ms=240000 editor compile >/dev/null &
+  compile_pid=$!
+  sleep 1
+  run_cli status >/dev/null
+  run_cli resource get editor/state >/dev/null
+  run_cli events tail after=0 >/dev/null
+  sleep 1
+  run_cli status >/dev/null
+  run_cli resource get scene/active >/dev/null
+  run_cli events tail after=0 >/dev/null
+  wait "$compile_pid"
+
+  run_cli editor stop >/dev/null || true
+  run_cli editor play >/dev/null &
+  play_pid=$!
+  sleep 1
+  run_cli status >/dev/null
+  run_cli resource get editor/state >/dev/null
+  run_cli events tail after=0 >/dev/null
+  wait "$play_pid"
+
+  play_status="$(json_cli resource get editor/state)"
+  assert_contains "$play_status" "\"isPlaying\": true"
+
+  run_cli editor stop >/dev/null &
+  stop_pid=$!
+  sleep 1
+  run_cli status >/dev/null
+  run_cli resource get editor/state >/dev/null
+  run_cli events tail after=0 >/dev/null
+  wait "$stop_pid"
+
+  stop_status="$(json_cli resource get editor/state)"
+  assert_contains "$stop_status" "\"isPlaying\": false"
+}
+
 main() {
   require_tool "dotnet"
   require_tool "jq"
@@ -444,6 +556,9 @@ main() {
         ;;
       editor-lifecycle)
         run_stage "editor-lifecycle" "stage_editor_lifecycle"
+        ;;
+      resilience)
+        run_stage "resilience" "stage_resilience"
         ;;
     esac
   done
