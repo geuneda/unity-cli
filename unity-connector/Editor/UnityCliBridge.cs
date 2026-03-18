@@ -21,6 +21,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using TMPro;
 
 namespace UnityCliBridge
 {
@@ -622,11 +623,11 @@ public static class UnityCliBridgeServer
             }),
             "ui.inputfield.set-text" => await OnMainThreadAsync(() =>
             {
-                var inputField = FindGameObject(arguments).GetComponent<InputField>() ?? throw new InvalidOperationException("InputField component was not found.");
-                inputField.text = arguments.Value<string>("text") ?? string.Empty;
-                inputField.MoveTextEnd(false);
-                Emit("component.changed", $"InputField changed: {inputField.gameObject.name}", new JObject { ["id"] = inputField.gameObject.GetInstanceID(), ["text"] = inputField.text });
-                return Success(UiObject(inputField.gameObject), "InputField updated.");
+                var gameObject = FindGameObject(arguments);
+                var text = arguments.Value<string>("text") ?? string.Empty;
+                SetInputFieldText(gameObject, text);
+                Emit("component.changed", $"InputField changed: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["text"] = text });
+                return Success(UiObject(gameObject), "InputField updated.");
             }),
             "ui.focus" => await OnMainThreadAsync(() =>
             {
@@ -819,17 +820,16 @@ public static class UnityCliBridgeServer
         var result = GameObjectObject(gameObject);
         var canvas = gameObject.GetComponent<Canvas>();
         var selectable = gameObject.GetComponent<Selectable>();
-        var text = gameObject.GetComponent<Text>();
         var toggle = gameObject.GetComponent<Toggle>();
         var slider = gameObject.GetComponent<Slider>();
         var scrollRect = gameObject.GetComponent<ScrollRect>();
-        var inputField = gameObject.GetComponent<InputField>();
+        var inputField = BuildInputFieldObject(gameObject);
 
         result["isCanvas"] = canvas != null;
         result["isSelectable"] = selectable != null;
         result["selectableType"] = selectable != null ? selectable.GetType().Name : null;
         result["isSelected"] = IsSelectedByEventSystem(gameObject);
-        result["text"] = text != null ? text.text : null;
+        result["text"] = GetTextValue(gameObject);
 
         if (toggle != null)
         {
@@ -863,19 +863,7 @@ public static class UnityCliBridgeServer
             };
         }
 
-        if (inputField != null)
-        {
-            result["inputField"] = new JObject
-            {
-                ["text"] = inputField.text,
-                ["interactable"] = inputField.interactable,
-                ["lineType"] = inputField.lineType.ToString(),
-                ["isFocused"] = inputField.isFocused,
-                ["caretPosition"] = inputField.caretPosition,
-                ["selectionAnchorPosition"] = inputField.selectionAnchorPosition,
-                ["selectionFocusPosition"] = inputField.selectionFocusPosition,
-            };
-        }
+        result["inputField"] = inputField;
 
         return result;
     }
@@ -1335,7 +1323,7 @@ public static class UnityCliBridgeServer
         eventSystem.RaycastAll(eventData, raycastResults);
         if (raycastResults.Count == 0)
         {
-            foreach (var raycaster in UnityEngine.Object.FindObjectsOfType<GraphicRaycaster>())
+            foreach (var raycaster in UnityEngine.Object.FindObjectsByType<GraphicRaycaster>(FindObjectsSortMode.None))
             {
                 raycaster.Raycast(eventData, raycastResults);
             }
@@ -1344,7 +1332,7 @@ public static class UnityCliBridgeServer
         if (raycastResults.Count == 0)
         {
             raycastResults.AddRange(
-                UnityEngine.Object.FindObjectsOfType<RectTransform>()
+                UnityEngine.Object.FindObjectsByType<RectTransform>(FindObjectsSortMode.None)
                     .Where(rectTransform =>
                     {
                         if (rectTransform == null || !rectTransform.gameObject.activeInHierarchy)
@@ -1380,7 +1368,7 @@ public static class UnityCliBridgeServer
 
         if (raycastResults.Count == 0 && preferredTarget == null)
         {
-            var nearestSelectable = UnityEngine.Object.FindObjectsOfType<Selectable>()
+            var nearestSelectable = UnityEngine.Object.FindObjectsByType<Selectable>(FindObjectsSortMode.None)
                 .Where(selectable => selectable != null && selectable.gameObject.activeInHierarchy)
                 .Select(selectable => new
                 {
@@ -1510,7 +1498,7 @@ public static class UnityCliBridgeServer
         }
 
         return Camera.main
-            ?? UnityEngine.Object.FindObjectsOfType<Camera>().FirstOrDefault(camera => camera.enabled)
+            ?? UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None).FirstOrDefault(camera => camera.enabled)
             ?? SceneView.lastActiveSceneView?.camera;
     }
 
@@ -1609,19 +1597,12 @@ public static class UnityCliBridgeServer
         var image = buttonObject.GetComponent<Image>();
         image.color = ParseColor(arguments.Value<string>("color"), new Color(0.15f, 0.55f, 0.95f, 1f));
 
-        var labelObject = new GameObject("Label", typeof(RectTransform), typeof(Text));
-        labelObject.transform.SetParent(buttonObject.transform, false);
+        var labelObject = CreateUiTextChild(buttonObject.transform, "Label", arguments.Value<string>("text") ?? buttonObject.name, ParseColor(arguments.Value<string>("textColor"), Color.white), FontStyle.Normal, TextAnchor.MiddleCenter, 24f);
         var labelRect = labelObject.GetComponent<RectTransform>();
         labelRect.anchorMin = Vector2.zero;
         labelRect.anchorMax = Vector2.one;
         labelRect.offsetMin = Vector2.zero;
         labelRect.offsetMax = Vector2.zero;
-
-        var text = labelObject.GetComponent<Text>();
-        text.text = arguments.Value<string>("text") ?? buttonObject.name;
-        text.alignment = TextAnchor.MiddleCenter;
-        text.color = ParseColor(arguments.Value<string>("textColor"), Color.white);
-        text.font = LoadBuiltinFont();
 
         EnsureEventSystem();
         return buttonObject;
@@ -1630,15 +1611,11 @@ public static class UnityCliBridgeServer
     private static GameObject CreateText(JObject arguments)
     {
         var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
-        var textObject = new GameObject(arguments.Value<string>("name") ?? "Text", typeof(RectTransform), typeof(Text));
+        var textObject = new GameObject(arguments.Value<string>("name") ?? "Text", typeof(RectTransform), typeof(TextMeshProUGUI));
         textObject.transform.SetParent(canvas.transform, false);
         ApplyRectTransform(textObject.GetComponent<RectTransform>(), arguments, new Vector2(240f, 48f));
 
-        var text = textObject.GetComponent<Text>();
-        text.text = arguments.Value<string>("text") ?? textObject.name;
-        text.alignment = TextAnchor.MiddleCenter;
-        text.color = ParseColor(arguments.Value<string>("color"), Color.white);
-        text.font = LoadBuiltinFont();
+        ConfigureTmpText(textObject.GetComponent<TextMeshProUGUI>(), arguments.Value<string>("text") ?? textObject.name, ParseColor(arguments.Value<string>("color"), Color.white), FontStyle.Normal, TextAnchor.MiddleCenter, 24f);
         EnsureEventSystem();
         return textObject;
     }
@@ -1669,7 +1646,7 @@ public static class UnityCliBridgeServer
         var checkmarkObject = CreateUiImageChild(backgroundObject.transform, "Checkmark", ParseColor(arguments.Value<string>("checkmarkColor"), new Color(0.2f, 0.8f, 0.35f, 1f)));
         StretchRect(checkmarkObject.GetComponent<RectTransform>(), new Vector2(4f, 4f), new Vector2(-4f, -4f));
 
-        var labelObject = CreateUiTextChild(toggleObject.transform, "Label", arguments.Value<string>("text") ?? toggleObject.name, ParseColor(arguments.Value<string>("textColor"), Color.white), FontStyle.Normal, TextAnchor.MiddleLeft);
+        var labelObject = CreateUiTextChild(toggleObject.transform, "Label", arguments.Value<string>("text") ?? toggleObject.name, ParseColor(arguments.Value<string>("textColor"), Color.white), FontStyle.Normal, TextAnchor.MiddleLeft, 20f);
         StretchRect(labelObject.GetComponent<RectTransform>(), new Vector2(36f, 0f), Vector2.zero);
 
         var toggle = toggleObject.GetComponent<Toggle>();
@@ -1749,7 +1726,7 @@ public static class UnityCliBridgeServer
 
         for (var index = 0; index < itemCount; index++)
         {
-            var itemObject = CreateUiTextChild(contentObject.transform, $"Item {index + 1}", (arguments.Value<string>("itemPrefix") ?? "Item") + " " + (index + 1), ParseColor(arguments.Value<string>("textColor"), Color.white), FontStyle.Normal, TextAnchor.MiddleLeft);
+            var itemObject = CreateUiTextChild(contentObject.transform, $"Item {index + 1}", (arguments.Value<string>("itemPrefix") ?? "Item") + " " + (index + 1), ParseColor(arguments.Value<string>("textColor"), Color.white), FontStyle.Normal, TextAnchor.MiddleLeft, 20f);
             var itemRect = itemObject.GetComponent<RectTransform>();
             itemRect.anchorMin = new Vector2(0f, 1f);
             itemRect.anchorMax = new Vector2(1f, 1f);
@@ -1781,27 +1758,28 @@ public static class UnityCliBridgeServer
     private static GameObject CreateInputField(JObject arguments)
     {
         var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
-        var inputObject = new GameObject(arguments.Value<string>("name") ?? "InputField", typeof(RectTransform), typeof(Image), typeof(InputField));
+        var inputObject = new GameObject(arguments.Value<string>("name") ?? "InputField", typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
         inputObject.transform.SetParent(canvas.transform, false);
         ApplyRectTransform(inputObject.GetComponent<RectTransform>(), arguments, new Vector2(320f, 44f));
 
         var image = inputObject.GetComponent<Image>();
         image.color = ParseColor(arguments.Value<string>("backgroundColor"), new Color(0.12f, 0.12f, 0.12f, 1f));
 
-        var textAreaObject = new GameObject("Text Area", typeof(RectTransform));
+        var textAreaObject = new GameObject("Text Area", typeof(RectTransform), typeof(RectMask2D));
         textAreaObject.transform.SetParent(inputObject.transform, false);
         StretchRect(textAreaObject.GetComponent<RectTransform>(), new Vector2(12f, 6f), new Vector2(-12f, -6f));
 
-        var textObject = CreateUiTextChild(textAreaObject.transform, "Text", arguments.Value<string>("text") ?? string.Empty, ParseColor(arguments.Value<string>("textColor"), Color.white), FontStyle.Normal, TextAnchor.MiddleLeft);
+        var textObject = CreateUiTextChild(textAreaObject.transform, "Text", arguments.Value<string>("text") ?? string.Empty, ParseColor(arguments.Value<string>("textColor"), Color.white), FontStyle.Normal, TextAnchor.MiddleLeft, 20f);
         StretchRect(textObject.GetComponent<RectTransform>(), Vector2.zero, Vector2.zero);
 
-        var placeholderObject = CreateUiTextChild(textAreaObject.transform, "Placeholder", arguments.Value<string>("placeholder") ?? "Enter text", ParseColor(arguments.Value<string>("placeholderColor"), new Color(1f, 1f, 1f, 0.45f)), FontStyle.Italic, TextAnchor.MiddleLeft);
+        var placeholderObject = CreateUiTextChild(textAreaObject.transform, "Placeholder", arguments.Value<string>("placeholder") ?? "Enter text", ParseColor(arguments.Value<string>("placeholderColor"), new Color(1f, 1f, 1f, 0.45f)), FontStyle.Italic, TextAnchor.MiddleLeft, 20f);
         StretchRect(placeholderObject.GetComponent<RectTransform>(), Vector2.zero, Vector2.zero);
 
-        var inputField = inputObject.GetComponent<InputField>();
-        inputField.textComponent = textObject.GetComponent<Text>();
-        inputField.placeholder = placeholderObject.GetComponent<Text>();
-        inputField.lineType = arguments["multiline"]?.Value<bool?>() ?? false ? InputField.LineType.MultiLineNewline : InputField.LineType.SingleLine;
+        var inputField = inputObject.GetComponent<TMP_InputField>();
+        inputField.textViewport = textAreaObject.GetComponent<RectTransform>();
+        inputField.textComponent = textObject.GetComponent<TextMeshProUGUI>();
+        inputField.placeholder = placeholderObject.GetComponent<TextMeshProUGUI>();
+        inputField.lineType = arguments["multiline"]?.Value<bool?>() ?? false ? TMP_InputField.LineType.MultiLineNewline : TMP_InputField.LineType.SingleLine;
         inputField.text = arguments.Value<string>("text") ?? string.Empty;
         inputField.targetGraphic = image;
         EnsureEventSystem();
@@ -1829,18 +1807,15 @@ public static class UnityCliBridgeServer
 
     private static EventSystem EnsureEventSystem()
     {
-        var existing = UnityEngine.Object.FindObjectOfType<EventSystem>();
+        var existing = UnityEngine.Object.FindFirstObjectByType<EventSystem>();
         if (existing != null)
         {
-            if (existing.GetComponent<StandaloneInputModule>() == null)
-            {
-                existing.gameObject.AddComponent<StandaloneInputModule>();
-            }
-
+            EnsureInputModule(existing.gameObject);
             return existing;
         }
 
-        var eventSystemObject = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+        var eventSystemObject = new GameObject("EventSystem", typeof(EventSystem));
+        EnsureInputModule(eventSystemObject);
         return eventSystemObject.GetComponent<EventSystem>();
     }
 
@@ -1855,29 +1830,21 @@ public static class UnityCliBridgeServer
         var eventSystem = EnsureEventSystem();
         if (eventSystem.currentSelectedGameObject == gameObject)
         {
-            if (gameObject.TryGetComponent<InputField>(out var existingInputField))
-            {
-                existingInputField.ActivateInputField();
-            }
-
+            ActivateInputField(gameObject);
             return;
         }
 
         eventSystem.SetSelectedGameObject(gameObject);
-        if (gameObject.TryGetComponent<InputField>(out var inputField))
-        {
-            inputField.ActivateInputField();
-            inputField.MoveTextEnd(false);
-        }
+        ActivateInputField(gameObject);
     }
 
     private static GameObject? ClearUiFocus()
     {
         var eventSystem = EnsureEventSystem();
         var previous = eventSystem.currentSelectedGameObject;
-        if (previous != null && previous.TryGetComponent<InputField>(out var inputField))
+        if (previous != null)
         {
-            inputField.DeactivateInputField();
+            DeactivateInputField(previous);
         }
 
         eventSystem.SetSelectedGameObject(null);
@@ -1892,16 +1859,11 @@ public static class UnityCliBridgeServer
         return imageObject;
     }
 
-    private static GameObject CreateUiTextChild(Transform parent, string name, string textValue, Color color, FontStyle fontStyle, TextAnchor alignment)
+    private static GameObject CreateUiTextChild(Transform parent, string name, string textValue, Color color, FontStyle fontStyle, TextAnchor alignment, float fontSize)
     {
-        var textObject = new GameObject(name, typeof(RectTransform), typeof(Text));
+        var textObject = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
         textObject.transform.SetParent(parent, false);
-        var text = textObject.GetComponent<Text>();
-        text.text = textValue;
-        text.alignment = alignment;
-        text.color = color;
-        text.font = LoadBuiltinFont();
-        text.fontStyle = fontStyle;
+        ConfigureTmpText(textObject.GetComponent<TextMeshProUGUI>(), textValue, color, fontStyle, alignment, fontSize);
         return textObject;
     }
 
@@ -2162,10 +2124,242 @@ public static class UnityCliBridgeServer
         throw new InvalidOperationException($"Shader not found: {shaderName}");
     }
 
-    private static Font LoadBuiltinFont()
+    private static void EnsureInputModule(GameObject eventSystemObject)
     {
-        return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
-            ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+        if (eventSystemObject.GetComponent<BaseInputModule>() != null)
+        {
+            return;
+        }
+
+        var inputSystemModuleType = Type.GetType("UnityEngine.InputSystem.UI.InputSystemUIInputModule, Unity.InputSystem")
+            ?? Type.GetType("UnityEngine.InputSystem.UI.InputSystemUIInputModule, Unity.InputSystem.ForUI");
+
+        if (inputSystemModuleType != null && typeof(BaseInputModule).IsAssignableFrom(inputSystemModuleType))
+        {
+            eventSystemObject.AddComponent(inputSystemModuleType);
+            return;
+        }
+
+        eventSystemObject.AddComponent<StandaloneInputModule>();
+    }
+
+    private static string? GetTextValue(GameObject gameObject)
+    {
+        if (gameObject.TryGetComponent<TMP_Text>(out var tmpText))
+        {
+            return tmpText.text;
+        }
+
+        var text = gameObject.GetComponent<Text>();
+        return text != null ? text.text : null;
+    }
+
+    private static JObject? BuildInputFieldObject(GameObject gameObject)
+    {
+        if (gameObject.TryGetComponent<TMP_InputField>(out var tmpInputField))
+        {
+            return new JObject
+            {
+                ["text"] = tmpInputField.text,
+                ["interactable"] = tmpInputField.interactable,
+                ["lineType"] = tmpInputField.lineType.ToString(),
+                ["isFocused"] = tmpInputField.isFocused,
+                ["caretPosition"] = tmpInputField.caretPosition,
+                ["selectionAnchorPosition"] = tmpInputField.selectionAnchorPosition,
+                ["selectionFocusPosition"] = tmpInputField.selectionFocusPosition,
+                ["textComponentType"] = nameof(TextMeshProUGUI),
+            };
+        }
+
+        var inputField = gameObject.GetComponent<InputField>();
+        if (inputField == null)
+        {
+            return null;
+        }
+
+        return new JObject
+        {
+            ["text"] = inputField.text,
+            ["interactable"] = inputField.interactable,
+            ["lineType"] = inputField.lineType.ToString(),
+            ["isFocused"] = inputField.isFocused,
+            ["caretPosition"] = inputField.caretPosition,
+            ["selectionAnchorPosition"] = inputField.selectionAnchorPosition,
+            ["selectionFocusPosition"] = inputField.selectionFocusPosition,
+            ["textComponentType"] = nameof(Text),
+        };
+    }
+
+    private static void SetInputFieldText(GameObject gameObject, string text)
+    {
+        if (gameObject.TryGetComponent<TMP_InputField>(out var tmpInputField))
+        {
+            tmpInputField.text = text;
+            tmpInputField.MoveTextEnd(false);
+            return;
+        }
+
+        var inputField = gameObject.GetComponent<InputField>() ?? throw new InvalidOperationException("InputField component was not found.");
+        inputField.text = text;
+        inputField.MoveTextEnd(false);
+    }
+
+    private static void ActivateInputField(GameObject gameObject)
+    {
+        if (gameObject.TryGetComponent<TMP_InputField>(out var tmpInputField))
+        {
+            tmpInputField.ActivateInputField();
+            tmpInputField.MoveTextEnd(false);
+            return;
+        }
+
+        if (gameObject.TryGetComponent<InputField>(out var inputField))
+        {
+            inputField.ActivateInputField();
+            inputField.MoveTextEnd(false);
+        }
+    }
+
+    private static void DeactivateInputField(GameObject gameObject)
+    {
+        if (gameObject.TryGetComponent<TMP_InputField>(out var tmpInputField))
+        {
+            tmpInputField.DeactivateInputField();
+            return;
+        }
+
+        if (gameObject.TryGetComponent<InputField>(out var inputField))
+        {
+            inputField.DeactivateInputField();
+        }
+    }
+
+    private static void ConfigureTmpText(TextMeshProUGUI text, string textValue, Color color, FontStyle fontStyle, TextAnchor alignment, float fontSize)
+    {
+        text.font = LoadDefaultTmpFontAsset();
+        text.text = textValue;
+        text.color = color;
+        text.fontStyle = ToTmpFontStyle(fontStyle);
+        text.alignment = ToTmpAlignment(alignment);
+        text.fontSize = fontSize;
+        text.textWrappingMode = TextWrappingModes.Normal;
+        text.overflowMode = TextOverflowModes.Ellipsis;
+        text.raycastTarget = false;
+    }
+
+    private static TMP_FontAsset LoadDefaultTmpFontAsset()
+    {
+        EnsureTmpResourcesImported();
+
+        var defaultFontAsset = TMP_Settings.GetFontAsset();
+        if (defaultFontAsset != null)
+        {
+            return defaultFontAsset;
+        }
+
+        var knownFontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
+        if (knownFontAsset != null)
+        {
+            if (TMP_Settings.instance != null && TMP_Settings.defaultFontAsset == null)
+            {
+                TMP_Settings.defaultFontAsset = knownFontAsset;
+                EditorUtility.SetDirty(TMP_Settings.instance);
+                AssetDatabase.SaveAssetIfDirty(TMP_Settings.instance);
+            }
+
+            return knownFontAsset;
+        }
+
+        var fontGuids = AssetDatabase.FindAssets("t:TMP_FontAsset LiberationSans");
+        if (fontGuids.Length > 0)
+        {
+            var fontPath = AssetDatabase.GUIDToAssetPath(fontGuids[0]);
+            var fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(fontPath);
+            if (fontAsset != null)
+            {
+                if (TMP_Settings.instance != null && TMP_Settings.defaultFontAsset == null)
+                {
+                    TMP_Settings.defaultFontAsset = fontAsset;
+                    EditorUtility.SetDirty(TMP_Settings.instance);
+                    AssetDatabase.SaveAssetIfDirty(TMP_Settings.instance);
+                }
+
+                return fontAsset;
+            }
+        }
+
+        throw new InvalidOperationException("TMP default font asset could not be loaded.");
+    }
+
+    private static void EnsureTmpResourcesImported()
+    {
+        if (TryLoadTmpResources())
+        {
+            return;
+        }
+
+        TMP_PackageResourceImporter.ImportResources(importEssentials: true, importExamples: false, interactive: false);
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            if (TryLoadTmpResources())
+            {
+                return;
+            }
+
+            Thread.Sleep(100);
+        }
+    }
+
+    private static bool TryLoadTmpResources()
+    {
+        var settings = TMP_Settings.LoadDefaultSettings()
+            ?? AssetDatabase.LoadAssetAtPath<TMP_Settings>("Assets/TextMesh Pro/Resources/TMP Settings.asset");
+
+        var fontAsset = TMP_Settings.GetFontAsset()
+            ?? AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
+
+        if (settings == null || fontAsset == null)
+        {
+            return false;
+        }
+
+        if (TMP_Settings.defaultFontAsset == null)
+        {
+            TMP_Settings.defaultFontAsset = fontAsset;
+            EditorUtility.SetDirty(settings);
+            AssetDatabase.SaveAssetIfDirty(settings);
+        }
+
+        return true;
+    }
+
+    private static FontStyles ToTmpFontStyle(FontStyle fontStyle)
+    {
+        return fontStyle switch
+        {
+            FontStyle.Bold => FontStyles.Bold,
+            FontStyle.Italic => FontStyles.Italic,
+            FontStyle.BoldAndItalic => FontStyles.Bold | FontStyles.Italic,
+            _ => FontStyles.Normal,
+        };
+    }
+
+    private static TextAlignmentOptions ToTmpAlignment(TextAnchor alignment)
+    {
+        return alignment switch
+        {
+            TextAnchor.UpperLeft => TextAlignmentOptions.TopLeft,
+            TextAnchor.UpperCenter => TextAlignmentOptions.Top,
+            TextAnchor.UpperRight => TextAlignmentOptions.TopRight,
+            TextAnchor.MiddleLeft => TextAlignmentOptions.Left,
+            TextAnchor.MiddleCenter => TextAlignmentOptions.Center,
+            TextAnchor.MiddleRight => TextAlignmentOptions.Right,
+            TextAnchor.LowerLeft => TextAlignmentOptions.BottomLeft,
+            TextAnchor.LowerCenter => TextAlignmentOptions.Bottom,
+            TextAnchor.LowerRight => TextAlignmentOptions.BottomRight,
+            _ => TextAlignmentOptions.Center,
+        };
     }
 
     private static bool IsRuntimeObject(Component component)

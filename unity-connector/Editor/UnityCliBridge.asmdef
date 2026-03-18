@@ -3,6 +3,7 @@
   "rootNamespace": "UnityCliBridge",
   "references": [
     "UnityEngine.UI",
+    "Unity.TextMeshPro",
     "UnityEditor.TestRunner"
   ],
   "includePlatforms": [

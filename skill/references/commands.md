@@ -128,6 +128,8 @@ unity-cli console clear
 
 ## UI 명령
 
+현재 UI 생성 계열 명령은 텍스트를 `TextMeshProUGUI`, 입력 필드를 `TMP_InputField`로 만든다. 첫 TMP UI 생성 시 프로젝트에 TMP Essential Resources가 없으면 자동 import가 실행될 수 있다.
+
 ### 생성
 
 | 명령 | 필수 인자 | 선택 인자 | 설명 |
@@ -137,8 +139,8 @@ unity-cli console clear
 | `ui toggle.create` | | `canvasName`, `name`, `text`, `anchoredPosition`, `size` | 토글 생성 |
 | `ui slider.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `minValue`, `maxValue`, `value` | 슬라이더 생성 |
 | `ui scrollrect.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `itemCount` | 스크롤뷰 생성 |
-| `ui inputfield.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `placeholder` | 입력필드 생성 |
-| `ui text.create` | | `canvasName`, `name`, `text`, `anchoredPosition`, `size` | 텍스트 생성 |
+| `ui inputfield.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `placeholder`, `text`, `multiline` | TMP 입력필드 생성 |
+| `ui text.create` | | `canvasName`, `name`, `text`, `anchoredPosition`, `size` | TMP 텍스트 생성 |
 | `ui image.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `color` | 이미지 생성 |
 
 ### 상태 변경
@@ -165,11 +167,24 @@ unity-cli console clear
 ```bash
 unity-cli ui canvas.create name=MyCanvas
 unity-cli ui button.create canvasName=MyCanvas name=Btn text=Click anchoredPosition=0,0 size=200,60
+unity-cli ui text.create canvasName=MyCanvas name=Title text="TMP Title" anchoredPosition=0,120 size=420,60
+unity-cli ui inputfield.create canvasName=MyCanvas name=MyInput placeholder="Type here" text="seed" anchoredPosition=0,40 size=420,56
 unity-cli ui click name=Btn pointerId=21
 unity-cli ui double-click normalizedPosition=0.5,0.5
 unity-cli ui focus name=MyInput
 unity-cli ui blur
 ```
+
+실제 생성 결과 검증:
+
+```bash
+unity-cli resource get ui/hierarchy
+unity-cli resource get editor/state
+```
+
+- `ui/hierarchy`에서 입력 필드는 `selectableType=TMP_InputField`, `inputField.textComponentType=TextMeshProUGUI`로 보인다.
+- 텍스트 오브젝트와 플레이스홀더/본문 텍스트도 `text` 값으로 조회된다.
+- EditMode에서는 `ui focus` 직후 `inputField.isFocused`가 바로 `true`가 아닐 수 있으므로 `isSelected`와 `editor/state.eventSystemSelectedObjectName`도 함께 본다.
 
 ## Input 명령 (월드 좌표)
 
