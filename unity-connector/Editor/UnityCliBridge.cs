@@ -90,6 +90,11 @@ public static class UnityCliBridgeServer
             _nextStartAttemptAt = EditorApplication.timeSinceStartup + 1d;
             return;
         }
+        catch (System.Net.Sockets.SocketException)
+        {
+            _nextStartAttemptAt = EditorApplication.timeSinceStartup + 1d;
+            return;
+        }
 
         _nextStartAttemptAt = -1d;
         _cts = new CancellationTokenSource();
