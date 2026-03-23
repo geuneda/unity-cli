@@ -2052,40 +2052,62 @@ public static class UnityCliBridgeServer
         if (gameView == null) throw new InvalidOperationException("Cannot open GameView window.");
 
         var gameViewSizesType = Type.GetType("UnityEditor.GameViewSizes, UnityEditor");
-        var singletonProp = gameViewSizesType?.GetProperty("instance", BindingFlags.Public | BindingFlags.Static);
+        if (gameViewSizesType == null) throw new InvalidOperationException("Cannot access GameViewSizes type.");
+
+        var singletonProp = gameViewSizesType.GetProperty("instance", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy);
         var instance = singletonProp?.GetValue(null);
-
-        var currentGroupProp = gameViewSizesType?.GetMethod("GetGroup", BindingFlags.Public | BindingFlags.Instance);
-        var gameViewSizeGroupType = Type.GetType("UnityEditor.GameViewSizeGroupType, UnityEditor");
-        var currentGroupIdx = (int)Enum.Parse(gameViewSizeGroupType!, EditorUserBuildSettings.activeBuildTarget.ToString().Contains("Standalone") ? "Standalone" : "Android", true);
-
-        object group;
-        try
+        if (instance == null)
         {
-            group = currentGroupProp?.Invoke(instance, new object[] { currentGroupIdx });
+            var singletonBase = Type.GetType("UnityEditor.ScriptableSingleton`1, UnityEditor");
+            if (singletonBase != null)
+            {
+                var concreteBase = singletonBase.MakeGenericType(gameViewSizesType);
+                var baseProp = concreteBase.GetProperty("instance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                instance = baseProp?.GetValue(null);
+            }
         }
-        catch
+        if (instance == null) throw new InvalidOperationException("Cannot get GameViewSizes instance.");
+
+        var currentGroupTypeProp = gameViewType.GetProperty("currentSizeGroupType", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        object currentGroupTypeVal;
+        if (currentGroupTypeProp != null)
         {
-            group = currentGroupProp?.Invoke(instance, new object[] { 0 });
+            currentGroupTypeVal = currentGroupTypeProp.GetValue(gameView);
+        }
+        else
+        {
+            var gameViewSizeGroupType = Type.GetType("UnityEditor.GameViewSizeGroupType, UnityEditor");
+            currentGroupTypeVal = Enum.ToObject(gameViewSizeGroupType!, 0);
         }
 
+        var getGroupMethod = gameViewSizesType.GetMethod("GetGroup", BindingFlags.Public | BindingFlags.Instance);
+        if (getGroupMethod == null) throw new InvalidOperationException("Cannot find GetGroup method.");
+
+        var group = getGroupMethod.Invoke(instance, new[] { currentGroupTypeVal });
         if (group == null) throw new InvalidOperationException("Cannot resolve GameViewSizeGroup.");
 
         var getTotalCountMethod = group.GetType().GetMethod("GetTotalCount");
         var getGameViewSizeMethod = group.GetType().GetMethod("GetGameViewSize");
         var addCustomSizeMethod = group.GetType().GetMethod("AddCustomSize");
 
+        if (getTotalCountMethod == null || getGameViewSizeMethod == null || addCustomSizeMethod == null)
+            throw new InvalidOperationException("Cannot find required GameViewSizeGroup methods.");
+
         var gameViewSizeType = Type.GetType("UnityEditor.GameViewSize, UnityEditor");
         var gameViewSizeTypeEnum = Type.GetType("UnityEditor.GameViewSizeType, UnityEditor");
 
-        var totalCount = (int)getTotalCountMethod!.Invoke(group, null)!;
+        var totalCount = (int)getTotalCountMethod.Invoke(group, null)!;
         var targetIndex = -1;
 
         for (var i = 0; i < totalCount; i++)
         {
-            var size = getGameViewSizeMethod!.Invoke(group, new object[] { i });
-            var w = (int)size!.GetType().GetProperty("width")!.GetValue(size);
-            var h = (int)size.GetType().GetProperty("height")!.GetValue(size);
+            var size = getGameViewSizeMethod.Invoke(group, new object[] { i });
+            if (size == null) continue;
+            var wProp = size.GetType().GetProperty("width");
+            var hProp = size.GetType().GetProperty("height");
+            if (wProp == null || hProp == null) continue;
+            var w = (int)wProp.GetValue(size)!;
+            var h = (int)hProp.GetValue(size)!;
             if (w == width && h == height)
             {
                 targetIndex = i;
@@ -2093,17 +2115,24 @@ public static class UnityCliBridgeServer
             }
         }
 
-        if (targetIndex < 0)
+        if (targetIndex < 0 && gameViewSizeType != null && gameViewSizeTypeEnum != null)
         {
-            var fixedResolution = Enum.Parse(gameViewSizeTypeEnum!, "FixedResolution");
-            var ctor = gameViewSizeType!.GetConstructor(new[] { gameViewSizeTypeEnum!, typeof(int), typeof(int), typeof(string) });
-            var newSize = ctor!.Invoke(new object[] { fixedResolution!, width, height, $"{width}x{height}" });
-            addCustomSizeMethod!.Invoke(group, new[] { newSize });
-            targetIndex = (int)getTotalCountMethod.Invoke(group, null)! - 1;
+            var fixedResolution = Enum.Parse(gameViewSizeTypeEnum, "FixedResolution");
+            var ctor = gameViewSizeType.GetConstructor(new[] { gameViewSizeTypeEnum, typeof(int), typeof(int), typeof(string) });
+            if (ctor != null)
+            {
+                var newSize = ctor.Invoke(new[] { fixedResolution, width, height, $"{width}x{height}" });
+                addCustomSizeMethod.Invoke(group, new[] { newSize });
+                targetIndex = (int)getTotalCountMethod.Invoke(group, null)! - 1;
+            }
         }
 
-        var selectedSizeIndexProp = gameViewType.GetProperty("selectedSizeIndex", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        selectedSizeIndexProp?.SetValue(gameView, targetIndex);
+        if (targetIndex >= 0)
+        {
+            var selectedSizeIndexProp = gameViewType.GetProperty("selectedSizeIndex", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            selectedSizeIndexProp?.SetValue(gameView, targetIndex);
+        }
+
         gameView.Repaint();
 
         return new JObject
