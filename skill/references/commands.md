@@ -132,16 +132,45 @@ unity-cli console clear
 
 ### 생성
 
+모든 UI 생성 명령은 `parentName` 또는 `parentId`로 부모 RectTransform을 지정할 수 있다. 미지정 시 Canvas 직속 자식으로 생성된다.
+앵커/피봇 파라미터(`anchorMin`, `anchorMax`, `pivot`)를 지원한다. 미지정 시 center anchor(0.5,0.5).
+
 | 명령 | 필수 인자 | 선택 인자 | 설명 |
 |------|-----------|-----------|------|
-| `ui canvas.create` | | `name` | Canvas 생성 |
-| `ui button.create` | | `canvasName`, `name`, `text`, `anchoredPosition`, `size` | 버튼 생성 |
-| `ui toggle.create` | | `canvasName`, `name`, `text`, `anchoredPosition`, `size` | 토글 생성 |
-| `ui slider.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `minValue`, `maxValue`, `value` | 슬라이더 생성 |
-| `ui scrollrect.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `itemCount` | 스크롤뷰 생성 |
-| `ui inputfield.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `placeholder`, `text`, `multiline` | TMP 입력필드 생성 |
-| `ui text.create` | | `canvasName`, `name`, `text`, `anchoredPosition`, `size` | TMP 텍스트 생성 |
-| `ui image.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `color` | 이미지 생성 |
+| `ui canvas.create` | | `name`, `referenceResolution`, `screenMatchMode`, `matchWidthOrHeight` | Canvas 생성 (CanvasScaler 설정 포함) |
+| `ui button.create` | | `canvasName`, `name`, `text`, `anchoredPosition`, `size`, `anchorMin`, `anchorMax`, `pivot`, `parentName`, `parentId`, `fontSize`, `fontStyle`, `alignment` | 버튼 생성 |
+| `ui toggle.create` | | `canvasName`, `name`, `text`, `anchoredPosition`, `size`, `anchorMin`, `anchorMax`, `pivot`, `parentName`, `parentId` | 토글 생성 |
+| `ui slider.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `anchorMin`, `anchorMax`, `pivot`, `parentName`, `parentId`, `minValue`, `maxValue`, `value` | 슬라이더 생성 |
+| `ui scrollrect.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `anchorMin`, `anchorMax`, `pivot`, `parentName`, `parentId`, `itemCount` | 스크롤뷰 생성 |
+| `ui inputfield.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `anchorMin`, `anchorMax`, `pivot`, `parentName`, `parentId`, `placeholder`, `text`, `multiline` | TMP 입력필드 생성 |
+| `ui text.create` | | `canvasName`, `name`, `text`, `anchoredPosition`, `size`, `anchorMin`, `anchorMax`, `pivot`, `parentName`, `parentId`, `fontSize`, `fontStyle`, `alignment` | TMP 텍스트 생성 |
+| `ui image.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `anchorMin`, `anchorMax`, `pivot`, `parentName`, `parentId`, `spritePath`, `imageType` | 이미지 생성 |
+| `ui panel.create` | | `canvasName`, `name`, `anchoredPosition`, `size`, `anchorMin`, `anchorMax`, `pivot`, `parentName`, `parentId`, `color` | 빈 RectTransform 패널 생성 (color 지정 시 Image 추가) |
+
+`fontStyle`: "Normal", "Bold", "Italic", "BoldAndItalic"
+`alignment`: "UpperLeft", "UpperCenter", "UpperRight", "MiddleLeft", "MiddleCenter", "MiddleRight", "LowerLeft", "LowerCenter", "LowerRight"
+`screenMatchMode`: "Expand"(기본), "Shrink", "MatchWidthOrHeight"
+`imageType`: "Simple", "Sliced", "Tiled", "Filled"
+
+### Layout
+
+| 명령 | 필수 인자 | 선택 인자 | 설명 |
+|------|-----------|-----------|------|
+| `ui layout.add` | `name` 또는 `id` | `layoutType`, `spacing`, `childAlignment`, `childForceExpandWidth`, `childForceExpandHeight`, `childControlWidth`, `childControlHeight`, `paddingLeft`, `paddingRight`, `paddingTop`, `paddingBottom`, `cellSize`, `gridSpacing`, `horizontalFit`, `verticalFit` | 기존 GO에 Layout 컴포넌트 추가 |
+
+`layoutType`: "Horizontal", "Vertical", "Grid", "ContentSizeFitter"
+
+### RectTransform 수정
+
+| 명령 | 필수 인자 | 선택 인자 | 설명 |
+|------|-----------|-----------|------|
+| `ui recttransform.modify` | `name` 또는 `id` | `anchorMin`, `anchorMax`, `pivot`, `anchoredPosition`, `size`, `offsetMin`, `offsetMax` | 기존 RectTransform 속성 수정 (제공된 속성만 변경) |
+
+### 스크린샷
+
+| 명령 | 필수 인자 | 선택 인자 | 설명 |
+|------|-----------|-----------|------|
+| `ui screenshot.capture` | `outputPath` | `width`, `height` | Game View 캡처 후 PNG 저장 |
 
 ### 상태 변경
 
@@ -165,12 +194,16 @@ unity-cli console clear
 | `ui swipe` | `normalizedFrom`, `normalizedTo` | 스와이프 |
 
 ```bash
-unity-cli ui canvas.create name=MyCanvas
+unity-cli ui canvas.create name=MyCanvas referenceResolution=1440,3040 screenMatchMode=Expand
+unity-cli ui panel.create canvasName=MyCanvas name=Header anchorMin=0,1 anchorMax=1,1 pivot=0.5,1 size=0,180 color=#1A1A2EFF
+unity-cli ui text.create canvasName=MyCanvas name=Title parentName=Header text="TMP Title" fontSize=48 fontStyle=Bold alignment=MiddleCenter
 unity-cli ui button.create canvasName=MyCanvas name=Btn text=Click anchoredPosition=0,0 size=200,60
-unity-cli ui text.create canvasName=MyCanvas name=Title text="TMP Title" anchoredPosition=0,120 size=420,60
+unity-cli ui image.create canvasName=MyCanvas name=Icon spritePath=Assets/Sprites/icon.png imageType=Simple size=64,64
 unity-cli ui inputfield.create canvasName=MyCanvas name=MyInput placeholder="Type here" text="seed" anchoredPosition=0,40 size=420,56
+unity-cli ui layout.add name=Header layoutType=Horizontal spacing=16 childAlignment=MiddleCenter paddingLeft=24 paddingRight=24
+unity-cli ui recttransform.modify name=Header anchoredPosition=0,-10 size=0,200
+unity-cli ui screenshot.capture outputPath=Assets/Screenshots/capture.png width=1440 height=3040
 unity-cli ui click name=Btn pointerId=21
-unity-cli ui double-click normalizedPosition=0.5,0.5
 unity-cli ui focus name=MyInput
 unity-cli ui blur
 ```
@@ -220,6 +253,7 @@ unity-cli menu execute path=Assets/Refresh
 | `editor pause` | `enabled` | 일시정지 토글 |
 | `editor refresh` | | 에디터 리프레시 |
 | `editor compile` | | 스크립트 컴파일 (완료 대기) |
+| `editor gameview.resize` | `width`, `height` | Game View 해상도 변경 |
 
 ```bash
 unity-cli editor play
@@ -227,6 +261,7 @@ unity-cli editor pause enabled=true
 unity-cli editor stop
 unity-cli editor refresh
 unity-cli --timeout-ms=120000 editor compile
+unity-cli editor gameview.resize width=1440 height=3040
 ```
 
 ## Resource 목록

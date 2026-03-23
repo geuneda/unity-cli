@@ -49,11 +49,12 @@ public static class UnityCliBridgeServer
         "tests.list", "tests.run",
         "console.get", "console.clear", "console.send",
         "ui.canvas.create", "ui.button.create", "ui.text.create", "ui.image.create", "ui.toggle.create", "ui.slider.create", "ui.scrollrect.create", "ui.inputfield.create",
+        "ui.panel.create", "ui.layout.add", "ui.recttransform.modify", "ui.screenshot.capture",
         "ui.toggle.set", "ui.slider.set", "ui.scrollrect.set", "ui.inputfield.set-text", "ui.focus", "ui.blur",
         "ui.click", "ui.double-click", "ui.long-press", "ui.drag", "ui.swipe",
         "input.tap", "input.double-tap", "input.long-press", "input.drag", "input.swipe",
         "menu.execute",
-        "editor.play", "editor.stop", "editor.pause", "editor.refresh", "editor.compile"
+        "editor.play", "editor.stop", "editor.pause", "editor.refresh", "editor.compile", "editor.gameview.resize"
     };
 
     static UnityCliBridgeServer()
@@ -544,7 +545,7 @@ public static class UnityCliBridgeServer
             }),
             "ui.canvas.create" => await OnMainThreadAsync(() =>
             {
-                var canvas = EnsureCanvas(arguments.Value<string>("name") ?? "Canvas");
+                var canvas = EnsureCanvas(arguments.Value<string>("name") ?? "Canvas", arguments);
                 Emit("hierarchy.changed", $"Canvas ready: {canvas.name}", new JObject { ["id"] = canvas.GetInstanceID(), ["name"] = canvas.name });
                 return Success(GameObjectObject(canvas), "Canvas created.");
             }),
@@ -589,6 +590,32 @@ public static class UnityCliBridgeServer
                 var image = CreateImage(arguments);
                 Emit("hierarchy.changed", $"Image created: {image.name}", new JObject { ["id"] = image.GetInstanceID(), ["name"] = image.name });
                 return Success(GameObjectObject(image), "Image created.");
+            }),
+            "ui.panel.create" => await OnMainThreadAsync(() =>
+            {
+                var panel = CreatePanel(arguments);
+                Emit("hierarchy.changed", $"Panel created: {panel.name}", new JObject { ["id"] = panel.GetInstanceID(), ["name"] = panel.name });
+                return Success(GameObjectObject(panel), "Panel created.");
+            }),
+            "ui.layout.add" => await OnMainThreadAsync(() =>
+            {
+                var result = AddLayout(arguments);
+                return Success(result, "Layout added.");
+            }),
+            "ui.recttransform.modify" => await OnMainThreadAsync(() =>
+            {
+                var result = ModifyRectTransform(arguments);
+                return Success(result, "RectTransform modified.");
+            }),
+            "ui.screenshot.capture" => await OnMainThreadAsync(() =>
+            {
+                var result = CaptureScreenshot(arguments);
+                return Success(result, "Screenshot captured.");
+            }),
+            "editor.gameview.resize" => await OnMainThreadAsync(() =>
+            {
+                var result = ResizeGameView(arguments);
+                return Success(result, "Game view resized.");
             }),
             "ui.toggle.set" => await OnMainThreadAsync(() =>
             {
@@ -1595,14 +1622,18 @@ public static class UnityCliBridgeServer
     private static GameObject CreateButton(JObject arguments)
     {
         var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
+        var parent = ResolveUiParent(arguments, canvas);
         var buttonObject = new GameObject(arguments.Value<string>("name") ?? "Button", typeof(RectTransform), typeof(Image), typeof(Button));
-        buttonObject.transform.SetParent(canvas.transform, false);
+        buttonObject.transform.SetParent(parent, false);
         ApplyRectTransform(buttonObject.GetComponent<RectTransform>(), arguments, new Vector2(160f, 48f));
 
         var image = buttonObject.GetComponent<Image>();
         image.color = ParseColor(arguments.Value<string>("color"), new Color(0.15f, 0.55f, 0.95f, 1f));
 
-        var labelObject = CreateUiTextChild(buttonObject.transform, "Label", arguments.Value<string>("text") ?? buttonObject.name, ParseColor(arguments.Value<string>("textColor"), Color.white), FontStyle.Normal, TextAnchor.MiddleCenter, 24f);
+        var labelFontSize = arguments["fontSize"]?.Value<float>() ?? 24f;
+        var labelFontStyle = ParseFontStyle(arguments.Value<string>("fontStyle"), FontStyle.Normal);
+        var labelAlignment = ParseTextAnchor(arguments.Value<string>("alignment"), TextAnchor.MiddleCenter);
+        var labelObject = CreateUiTextChild(buttonObject.transform, "Label", arguments.Value<string>("text") ?? buttonObject.name, ParseColor(arguments.Value<string>("textColor"), Color.white), labelFontStyle, labelAlignment, labelFontSize);
         var labelRect = labelObject.GetComponent<RectTransform>();
         labelRect.anchorMin = Vector2.zero;
         labelRect.anchorMax = Vector2.one;
@@ -1616,11 +1647,15 @@ public static class UnityCliBridgeServer
     private static GameObject CreateText(JObject arguments)
     {
         var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
+        var parent = ResolveUiParent(arguments, canvas);
         var textObject = new GameObject(arguments.Value<string>("name") ?? "Text", typeof(RectTransform), typeof(TextMeshProUGUI));
-        textObject.transform.SetParent(canvas.transform, false);
+        textObject.transform.SetParent(parent, false);
         ApplyRectTransform(textObject.GetComponent<RectTransform>(), arguments, new Vector2(240f, 48f));
 
-        ConfigureTmpText(textObject.GetComponent<TextMeshProUGUI>(), arguments.Value<string>("text") ?? textObject.name, ParseColor(arguments.Value<string>("color"), Color.white), FontStyle.Normal, TextAnchor.MiddleCenter, 24f);
+        var fontSize = arguments["fontSize"]?.Value<float>() ?? 24f;
+        var fontStyle = ParseFontStyle(arguments.Value<string>("fontStyle"), FontStyle.Normal);
+        var alignment = ParseTextAnchor(arguments.Value<string>("alignment"), TextAnchor.MiddleCenter);
+        ConfigureTmpText(textObject.GetComponent<TextMeshProUGUI>(), arguments.Value<string>("text") ?? textObject.name, ParseColor(arguments.Value<string>("color"), Color.white), fontStyle, alignment, fontSize);
         EnsureEventSystem();
         return textObject;
     }
@@ -1628,12 +1663,33 @@ public static class UnityCliBridgeServer
     private static GameObject CreateImage(JObject arguments)
     {
         var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
+        var parent = ResolveUiParent(arguments, canvas);
         var imageObject = new GameObject(arguments.Value<string>("name") ?? "Image", typeof(RectTransform), typeof(Image));
-        imageObject.transform.SetParent(canvas.transform, false);
+        imageObject.transform.SetParent(parent, false);
         ApplyRectTransform(imageObject.GetComponent<RectTransform>(), arguments, new Vector2(128f, 128f));
         var image = imageObject.GetComponent<Image>();
-        image.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+        var spritePath = arguments.Value<string>("spritePath");
+        if (!string.IsNullOrEmpty(spritePath))
+        {
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(spritePath);
+            if (sprite != null) image.sprite = sprite;
+        }
+        else
+        {
+            image.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+        }
         image.color = ParseColor(arguments.Value<string>("color"), Color.white);
+        var imageTypeStr = arguments.Value<string>("imageType");
+        if (!string.IsNullOrEmpty(imageTypeStr))
+        {
+            image.type = imageTypeStr switch
+            {
+                "Sliced" => Image.Type.Sliced,
+                "Tiled" => Image.Type.Tiled,
+                "Filled" => Image.Type.Filled,
+                _ => Image.Type.Simple,
+            };
+        }
         EnsureEventSystem();
         return imageObject;
     }
@@ -1641,8 +1697,9 @@ public static class UnityCliBridgeServer
     private static GameObject CreateToggle(JObject arguments)
     {
         var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
+        var parent = ResolveUiParent(arguments, canvas);
         var toggleObject = new GameObject(arguments.Value<string>("name") ?? "Toggle", typeof(RectTransform), typeof(Toggle));
-        toggleObject.transform.SetParent(canvas.transform, false);
+        toggleObject.transform.SetParent(parent, false);
         ApplyRectTransform(toggleObject.GetComponent<RectTransform>(), arguments, new Vector2(240f, 40f));
 
         var backgroundObject = CreateUiImageChild(toggleObject.transform, "Background", ParseColor(arguments.Value<string>("backgroundColor"), new Color(0.16f, 0.16f, 0.16f, 1f)));
@@ -1665,8 +1722,9 @@ public static class UnityCliBridgeServer
     private static GameObject CreateSlider(JObject arguments)
     {
         var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
+        var parent = ResolveUiParent(arguments, canvas);
         var sliderObject = new GameObject(arguments.Value<string>("name") ?? "Slider", typeof(RectTransform), typeof(Slider));
-        sliderObject.transform.SetParent(canvas.transform, false);
+        sliderObject.transform.SetParent(parent, false);
         ApplyRectTransform(sliderObject.GetComponent<RectTransform>(), arguments, new Vector2(280f, 40f));
 
         var backgroundObject = CreateUiImageChild(sliderObject.transform, "Background", ParseColor(arguments.Value<string>("backgroundColor"), new Color(0.16f, 0.16f, 0.16f, 1f)));
@@ -1702,8 +1760,9 @@ public static class UnityCliBridgeServer
     private static GameObject CreateScrollRect(JObject arguments)
     {
         var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
+        var parent = ResolveUiParent(arguments, canvas);
         var scrollRectObject = new GameObject(arguments.Value<string>("name") ?? "ScrollRect", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
-        scrollRectObject.transform.SetParent(canvas.transform, false);
+        scrollRectObject.transform.SetParent(parent, false);
         ApplyRectTransform(scrollRectObject.GetComponent<RectTransform>(), arguments, new Vector2(320f, 220f));
 
         var rootImage = scrollRectObject.GetComponent<Image>();
@@ -1763,8 +1822,9 @@ public static class UnityCliBridgeServer
     private static GameObject CreateInputField(JObject arguments)
     {
         var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
+        var parent = ResolveUiParent(arguments, canvas);
         var inputObject = new GameObject(arguments.Value<string>("name") ?? "InputField", typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
-        inputObject.transform.SetParent(canvas.transform, false);
+        inputObject.transform.SetParent(parent, false);
         ApplyRectTransform(inputObject.GetComponent<RectTransform>(), arguments, new Vector2(320f, 44f));
 
         var image = inputObject.GetComponent<Image>();
@@ -1791,11 +1851,279 @@ public static class UnityCliBridgeServer
         return inputObject;
     }
 
-    private static GameObject EnsureCanvas(string canvasName)
+    private static GameObject CreatePanel(JObject arguments)
+    {
+        var canvas = EnsureCanvas(arguments.Value<string>("canvasName") ?? "Canvas");
+        var parent = ResolveUiParent(arguments, canvas);
+        var panelObject = new GameObject(arguments.Value<string>("name") ?? "Panel", typeof(RectTransform));
+        panelObject.transform.SetParent(parent, false);
+        ApplyRectTransform(panelObject.GetComponent<RectTransform>(), arguments, new Vector2(200f, 200f));
+
+        var colorStr = arguments.Value<string>("color");
+        if (!string.IsNullOrEmpty(colorStr))
+        {
+            var image = panelObject.AddComponent<Image>();
+            image.color = ParseColor(colorStr, Color.white);
+        }
+
+        EnsureEventSystem();
+        return panelObject;
+    }
+
+    private static JObject AddLayout(JObject arguments)
+    {
+        var gameObject = FindGameObject(arguments);
+        var layoutType = arguments.Value<string>("layoutType") ?? "Vertical";
+
+        switch (layoutType)
+        {
+            case "Horizontal":
+            {
+                var layout = gameObject.GetComponent<HorizontalLayoutGroup>() ?? gameObject.AddComponent<HorizontalLayoutGroup>();
+                ApplyLayoutGroupSettings(layout, arguments);
+                return new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["layoutType"] = layoutType };
+            }
+            case "Vertical":
+            {
+                var layout = gameObject.GetComponent<VerticalLayoutGroup>() ?? gameObject.AddComponent<VerticalLayoutGroup>();
+                ApplyLayoutGroupSettings(layout, arguments);
+                return new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["layoutType"] = layoutType };
+            }
+            case "Grid":
+            {
+                var layout = gameObject.GetComponent<GridLayoutGroup>() ?? gameObject.AddComponent<GridLayoutGroup>();
+                layout.cellSize = ParseVector2(arguments["cellSize"] as JArray, new Vector2(100f, 100f));
+                layout.spacing = ParseVector2(arguments["gridSpacing"] as JArray, Vector2.zero);
+                layout.childAlignment = ParseTextAnchor(arguments.Value<string>("childAlignment"), TextAnchor.UpperLeft);
+                layout.padding = ParseRectOffset(arguments);
+                return new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["layoutType"] = layoutType };
+            }
+            case "ContentSizeFitter":
+            {
+                var fitter = gameObject.GetComponent<ContentSizeFitter>() ?? gameObject.AddComponent<ContentSizeFitter>();
+                fitter.horizontalFit = ParseFitMode(arguments.Value<string>("horizontalFit"), ContentSizeFitter.FitMode.Unconstrained);
+                fitter.verticalFit = ParseFitMode(arguments.Value<string>("verticalFit"), ContentSizeFitter.FitMode.Unconstrained);
+                return new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["layoutType"] = layoutType };
+            }
+            default:
+                throw new InvalidOperationException($"Unknown layoutType: {layoutType}");
+        }
+    }
+
+    private static void ApplyLayoutGroupSettings(HorizontalOrVerticalLayoutGroup layout, JObject arguments)
+    {
+        layout.spacing = arguments["spacing"]?.Value<float>() ?? 0f;
+        layout.childAlignment = ParseTextAnchor(arguments.Value<string>("childAlignment"), TextAnchor.UpperLeft);
+        layout.childForceExpandWidth = arguments["childForceExpandWidth"]?.Value<bool>() ?? true;
+        layout.childForceExpandHeight = arguments["childForceExpandHeight"]?.Value<bool>() ?? true;
+        layout.childControlWidth = arguments["childControlWidth"]?.Value<bool>() ?? true;
+        layout.childControlHeight = arguments["childControlHeight"]?.Value<bool>() ?? true;
+        layout.padding = ParseRectOffset(arguments);
+    }
+
+    private static RectOffset ParseRectOffset(JObject arguments)
+    {
+        return new RectOffset(
+            arguments["paddingLeft"]?.Value<int>() ?? 0,
+            arguments["paddingRight"]?.Value<int>() ?? 0,
+            arguments["paddingTop"]?.Value<int>() ?? 0,
+            arguments["paddingBottom"]?.Value<int>() ?? 0
+        );
+    }
+
+    private static ContentSizeFitter.FitMode ParseFitMode(string value, ContentSizeFitter.FitMode fallback)
+    {
+        return value switch
+        {
+            "Unconstrained" => ContentSizeFitter.FitMode.Unconstrained,
+            "MinSize" => ContentSizeFitter.FitMode.MinSize,
+            "PreferredSize" => ContentSizeFitter.FitMode.PreferredSize,
+            _ => fallback,
+        };
+    }
+
+    private static JObject ModifyRectTransform(JObject arguments)
+    {
+        var gameObject = FindGameObject(arguments);
+        var rt = gameObject.GetComponent<RectTransform>();
+        if (rt == null) throw new InvalidOperationException($"GameObject '{gameObject.name}' has no RectTransform.");
+
+        if (arguments["anchorMin"] is JArray anchorMinArr) rt.anchorMin = ParseVector2(anchorMinArr, rt.anchorMin);
+        if (arguments["anchorMax"] is JArray anchorMaxArr) rt.anchorMax = ParseVector2(anchorMaxArr, rt.anchorMax);
+        if (arguments["pivot"] is JArray pivotArr) rt.pivot = ParseVector2(pivotArr, rt.pivot);
+        if (arguments["anchoredPosition"] is JArray posArr) rt.anchoredPosition = ParseVector2(posArr, rt.anchoredPosition);
+        if (arguments["size"] is JArray sizeArr) rt.sizeDelta = ParseVector2(sizeArr, rt.sizeDelta);
+        if (arguments["offsetMin"] is JArray offMinArr) rt.offsetMin = ParseVector2(offMinArr, rt.offsetMin);
+        if (arguments["offsetMax"] is JArray offMaxArr) rt.offsetMax = ParseVector2(offMaxArr, rt.offsetMax);
+
+        return new JObject
+        {
+            ["id"] = gameObject.GetInstanceID(),
+            ["name"] = gameObject.name,
+            ["anchorMin"] = new JArray(rt.anchorMin.x, rt.anchorMin.y),
+            ["anchorMax"] = new JArray(rt.anchorMax.x, rt.anchorMax.y),
+            ["pivot"] = new JArray(rt.pivot.x, rt.pivot.y),
+            ["anchoredPosition"] = new JArray(rt.anchoredPosition.x, rt.anchoredPosition.y),
+            ["sizeDelta"] = new JArray(rt.sizeDelta.x, rt.sizeDelta.y),
+        };
+    }
+
+    private static JObject CaptureScreenshot(JObject arguments)
+    {
+        var width = arguments["width"]?.Value<int>() ?? 1920;
+        var height = arguments["height"]?.Value<int>() ?? 1080;
+        var outputPath = arguments.Value<string>("outputPath") ?? throw new InvalidOperationException("outputPath is required.");
+
+        var gameViewType = Type.GetType("UnityEditor.GameView, UnityEditor");
+        if (gameViewType == null) throw new InvalidOperationException("Cannot access GameView type.");
+
+        var gameView = EditorWindow.GetWindow(gameViewType, false, null, false);
+        if (gameView == null) throw new InvalidOperationException("Cannot open GameView window.");
+
+        gameView.Focus();
+        gameView.Repaint();
+
+        var rt = new RenderTexture(width, height, 24);
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+
+        var cameras = Camera.allCameras;
+        if (cameras.Length > 0)
+        {
+            foreach (var cam in cameras.OrderBy(c => c.depth))
+            {
+                cam.targetTexture = rt;
+                cam.Render();
+                cam.targetTexture = null;
+            }
+        }
+
+        var canvases = UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None);
+        foreach (var canvas in canvases)
+        {
+            if (canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+            {
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = Camera.main;
+                if (Camera.main != null)
+                {
+                    Camera.main.targetTexture = rt;
+                    Camera.main.Render();
+                    Camera.main.targetTexture = null;
+                }
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                canvas.worldCamera = null;
+            }
+        }
+
+        var tex = new Texture2D(width, height, TextureFormat.RGB24, false);
+        tex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+        tex.Apply();
+        RenderTexture.active = prev;
+        UnityEngine.Object.DestroyImmediate(rt);
+
+        var dir = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
+        var bytes = tex.EncodeToPNG();
+        File.WriteAllBytes(outputPath, bytes);
+        UnityEngine.Object.DestroyImmediate(tex);
+
+        AssetDatabase.Refresh();
+
+        return new JObject
+        {
+            ["outputPath"] = outputPath,
+            ["width"] = width,
+            ["height"] = height,
+        };
+    }
+
+    private static JObject ResizeGameView(JObject arguments)
+    {
+        var width = arguments["width"]?.Value<int>() ?? 1920;
+        var height = arguments["height"]?.Value<int>() ?? 1080;
+
+        var gameViewType = Type.GetType("UnityEditor.GameView, UnityEditor");
+        if (gameViewType == null) throw new InvalidOperationException("Cannot access GameView type.");
+
+        var gameView = EditorWindow.GetWindow(gameViewType, false, null, false);
+        if (gameView == null) throw new InvalidOperationException("Cannot open GameView window.");
+
+        var gameViewSizesType = Type.GetType("UnityEditor.GameViewSizes, UnityEditor");
+        var singletonProp = gameViewSizesType?.GetProperty("instance", BindingFlags.Public | BindingFlags.Static);
+        var instance = singletonProp?.GetValue(null);
+
+        var currentGroupProp = gameViewSizesType?.GetMethod("GetGroup", BindingFlags.Public | BindingFlags.Instance);
+        var gameViewSizeGroupType = Type.GetType("UnityEditor.GameViewSizeGroupType, UnityEditor");
+        var currentGroupIdx = (int)Enum.Parse(gameViewSizeGroupType!, EditorUserBuildSettings.activeBuildTarget.ToString().Contains("Standalone") ? "Standalone" : "Android", true);
+
+        object group;
+        try
+        {
+            group = currentGroupProp?.Invoke(instance, new object[] { currentGroupIdx });
+        }
+        catch
+        {
+            group = currentGroupProp?.Invoke(instance, new object[] { 0 });
+        }
+
+        if (group == null) throw new InvalidOperationException("Cannot resolve GameViewSizeGroup.");
+
+        var getTotalCountMethod = group.GetType().GetMethod("GetTotalCount");
+        var getGameViewSizeMethod = group.GetType().GetMethod("GetGameViewSize");
+        var addCustomSizeMethod = group.GetType().GetMethod("AddCustomSize");
+
+        var gameViewSizeType = Type.GetType("UnityEditor.GameViewSize, UnityEditor");
+        var gameViewSizeTypeEnum = Type.GetType("UnityEditor.GameViewSizeType, UnityEditor");
+
+        var totalCount = (int)getTotalCountMethod!.Invoke(group, null)!;
+        var targetIndex = -1;
+
+        for (var i = 0; i < totalCount; i++)
+        {
+            var size = getGameViewSizeMethod!.Invoke(group, new object[] { i });
+            var w = (int)size!.GetType().GetProperty("width")!.GetValue(size);
+            var h = (int)size.GetType().GetProperty("height")!.GetValue(size);
+            if (w == width && h == height)
+            {
+                targetIndex = i;
+                break;
+            }
+        }
+
+        if (targetIndex < 0)
+        {
+            var fixedResolution = Enum.Parse(gameViewSizeTypeEnum!, "FixedResolution");
+            var ctor = gameViewSizeType!.GetConstructor(new[] { gameViewSizeTypeEnum!, typeof(int), typeof(int), typeof(string) });
+            var newSize = ctor!.Invoke(new object[] { fixedResolution!, width, height, $"{width}x{height}" });
+            addCustomSizeMethod!.Invoke(group, new[] { newSize });
+            targetIndex = (int)getTotalCountMethod.Invoke(group, null)! - 1;
+        }
+
+        var selectedSizeIndexProp = gameViewType.GetProperty("selectedSizeIndex", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        selectedSizeIndexProp?.SetValue(gameView, targetIndex);
+        gameView.Repaint();
+
+        return new JObject
+        {
+            ["width"] = width,
+            ["height"] = height,
+            ["sizeIndex"] = targetIndex,
+        };
+    }
+
+    private static GameObject EnsureCanvas(string canvasName, JObject arguments = null)
     {
         var existing = GameObject.Find(canvasName);
         if (existing != null && existing.GetComponent<Canvas>() != null)
         {
+            if (arguments != null)
+            {
+                var existingScaler = existing.GetComponent<CanvasScaler>();
+                if (existingScaler != null) ApplyCanvasScalerSettings(existingScaler, arguments);
+            }
             EnsureEventSystem();
             return existing;
         }
@@ -1805,9 +2133,21 @@ public static class UnityCliBridgeServer
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         var scaler = canvasObject.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        ApplyCanvasScalerSettings(scaler, arguments);
         EnsureEventSystem();
         return canvasObject;
+    }
+
+    private static void ApplyCanvasScalerSettings(CanvasScaler scaler, JObject arguments)
+    {
+        scaler.referenceResolution = ParseVector2(arguments?["referenceResolution"] as JArray, new Vector2(1920f, 1080f));
+        scaler.screenMatchMode = (arguments?.Value<string>("screenMatchMode")) switch
+        {
+            "Shrink" => CanvasScaler.ScreenMatchMode.Shrink,
+            "MatchWidthOrHeight" => CanvasScaler.ScreenMatchMode.MatchWidthOrHeight,
+            _ => CanvasScaler.ScreenMatchMode.Expand,
+        };
+        scaler.matchWidthOrHeight = arguments?["matchWidthOrHeight"]?.Value<float>() ?? 0.5f;
     }
 
     private static EventSystem EnsureEventSystem()
@@ -1822,6 +2162,27 @@ public static class UnityCliBridgeServer
         var eventSystemObject = new GameObject("EventSystem", typeof(EventSystem));
         EnsureInputModule(eventSystemObject);
         return eventSystemObject.GetComponent<EventSystem>();
+    }
+
+    private static Transform ResolveUiParent(JObject arguments, GameObject canvasObject)
+    {
+        var parentId = arguments["parentId"]?.Value<int?>();
+        if (parentId.HasValue)
+        {
+            var parent = EditorUtility.InstanceIDToObject(parentId.Value) as GameObject;
+            if (parent != null && parent.GetComponent<RectTransform>() != null)
+                return parent.transform;
+        }
+
+        var parentName = arguments.Value<string>("parentName");
+        if (!string.IsNullOrEmpty(parentName))
+        {
+            var parent = GameObject.Find(parentName);
+            if (parent != null && parent.GetComponent<RectTransform>() != null)
+                return parent.transform;
+        }
+
+        return canvasObject.transform;
     }
 
     private static bool IsSelectedByEventSystem(GameObject gameObject)
@@ -2060,9 +2421,9 @@ public static class UnityCliBridgeServer
 
     private static void ApplyRectTransform(RectTransform rectTransform, JObject arguments, Vector2 defaultSize)
     {
-        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-        rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        rectTransform.anchorMin = ParseVector2(arguments["anchorMin"] as JArray, new Vector2(0.5f, 0.5f));
+        rectTransform.anchorMax = ParseVector2(arguments["anchorMax"] as JArray, new Vector2(0.5f, 0.5f));
+        rectTransform.pivot = ParseVector2(arguments["pivot"] as JArray, new Vector2(0.5f, 0.5f));
         rectTransform.anchoredPosition = ParseVector2(arguments["anchoredPosition"] as JArray, Vector2.zero);
         rectTransform.sizeDelta = ParseVector2(arguments["size"] as JArray, defaultSize);
     }
@@ -2094,6 +2455,35 @@ public static class UnityCliBridgeServer
     {
         Color color;
         return !string.IsNullOrEmpty(colorText) && ColorUtility.TryParseHtmlString(colorText, out color) ? color : fallback;
+    }
+
+    private static FontStyle ParseFontStyle(string value, FontStyle fallback)
+    {
+        return value switch
+        {
+            "Bold" => FontStyle.Bold,
+            "Italic" => FontStyle.Italic,
+            "BoldAndItalic" => FontStyle.BoldAndItalic,
+            "Normal" => FontStyle.Normal,
+            _ => fallback,
+        };
+    }
+
+    private static TextAnchor ParseTextAnchor(string value, TextAnchor fallback)
+    {
+        return value switch
+        {
+            "UpperLeft" => TextAnchor.UpperLeft,
+            "UpperCenter" => TextAnchor.UpperCenter,
+            "UpperRight" => TextAnchor.UpperRight,
+            "MiddleLeft" => TextAnchor.MiddleLeft,
+            "MiddleCenter" => TextAnchor.MiddleCenter,
+            "MiddleRight" => TextAnchor.MiddleRight,
+            "LowerLeft" => TextAnchor.LowerLeft,
+            "LowerCenter" => TextAnchor.LowerCenter,
+            "LowerRight" => TextAnchor.LowerRight,
+            _ => fallback,
+        };
     }
 
     private static Shader ResolveShader(string? shaderName, bool allowFallback)
