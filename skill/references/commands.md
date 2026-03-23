@@ -80,11 +80,20 @@ unity-cli material modify path=Assets/Materials/Red.mat color=#00FF00FF
 |------|-----------|-----------|------|
 | `asset list` | | `filter` | 에셋 목록 |
 | `asset add-to-scene` | `assetPath` | `scenePath`, `name` | 프리팹 인스턴스화 |
+| `asset import-texture` | `path` | `textureType`, `spriteMode`, `maxTextureSize`, `filterMode` | 텍스처 임포트 설정 변경 |
 
 ```bash
 unity-cli asset list filter=t:Prefab
 unity-cli asset add-to-scene assetPath=Assets/Prefabs/Enemy.prefab
+
+# PNG를 UGUI Sprite로 임포트 (Figma 에셋 등)
+unity-cli asset import-texture path=Assets/FigmaAssets/icon.png textureType=Sprite
+unity-cli asset import-texture path=Assets/FigmaAssets/hero.png textureType=Sprite maxTextureSize=2048
 ```
+
+`textureType` 옵션: `Sprite` (기본), `Default`, `NormalMap`, `Cursor`
+`spriteMode`: `1` (Single, 기본), `2` (Multiple)
+`filterMode`: `Bilinear` (기본), `Point`, `Trilinear`
 
 ## Package 명령
 

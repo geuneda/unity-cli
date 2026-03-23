@@ -44,7 +44,7 @@ public static class UnityCliBridgeServer
         "sprite.create",
         "component.update",
         "material.create", "material.assign", "material.modify", "material.info",
-        "asset.list", "asset.add-to-scene",
+        "asset.list", "asset.add-to-scene", "asset.import-texture",
         "package.list", "package.add",
         "tests.list", "tests.run",
         "console.get", "console.clear", "console.send",
@@ -505,6 +505,66 @@ public static class UnityCliBridgeServer
 
                 Emit("hierarchy.changed", $"Prefab instantiated: {instance.name}", null);
                 return Success(GameObjectObject(instance), "Asset instantiated.");
+            }),
+            "asset.import-texture" => await OnMainThreadAsync(() =>
+            {
+                var path = arguments.Value<string>("path") ?? throw new InvalidOperationException("path is required.");
+                var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+                if (importer == null)
+                    throw new InvalidOperationException($"TextureImporter not found for: {path}. Ensure the file exists and editor has been refreshed.");
+
+                var changed = false;
+                var textureType = arguments.Value<string>("textureType") ?? "Sprite";
+                var targetType = textureType switch
+                {
+                    "Default" => TextureImporterType.Default,
+                    "NormalMap" => TextureImporterType.NormalMap,
+                    "Cursor" => TextureImporterType.Cursor,
+                    _ => TextureImporterType.Sprite,
+                };
+                if (importer.textureType != targetType) { importer.textureType = targetType; changed = true; }
+
+                var spriteMode = arguments.Value<int?>("spriteMode");
+                if (spriteMode.HasValue && importer.spriteImportMode != (SpriteImportMode)spriteMode.Value)
+                {
+                    importer.spriteImportMode = (SpriteImportMode)spriteMode.Value;
+                    changed = true;
+                }
+
+                var maxSize = arguments.Value<int?>("maxTextureSize");
+                if (maxSize.HasValue && importer.maxTextureSize != maxSize.Value)
+                {
+                    importer.maxTextureSize = maxSize.Value;
+                    changed = true;
+                }
+
+                var filterModeStr = arguments.Value<string>("filterMode");
+                if (!string.IsNullOrEmpty(filterModeStr))
+                {
+                    var fm = filterModeStr switch
+                    {
+                        "Point" => FilterMode.Point,
+                        "Trilinear" => FilterMode.Trilinear,
+                        _ => FilterMode.Bilinear,
+                    };
+                    if (importer.filterMode != fm) { importer.filterMode = fm; changed = true; }
+                }
+
+                if (changed)
+                {
+                    importer.SaveAndReimport();
+                }
+
+                var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+                return Success(new JObject
+                {
+                    ["path"] = path,
+                    ["textureType"] = importer.textureType.ToString(),
+                    ["spriteMode"] = (int)importer.spriteImportMode,
+                    ["maxTextureSize"] = importer.maxTextureSize,
+                    ["hasSpriteAsset"] = sprite != null,
+                    ["reimported"] = changed,
+                }, changed ? "Texture import settings updated and reimported." : "Texture already has correct settings.");
             }),
             "package.list" => await OnMainThreadAsync(() =>
             {
@@ -1672,6 +1732,17 @@ public static class UnityCliBridgeServer
         if (!string.IsNullOrEmpty(spritePath))
         {
             var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(spritePath);
+            if (sprite == null)
+            {
+                var importer = AssetImporter.GetAtPath(spritePath) as TextureImporter;
+                if (importer != null && importer.textureType != TextureImporterType.Sprite)
+                {
+                    importer.textureType = TextureImporterType.Sprite;
+                    importer.spriteImportMode = SpriteImportMode.Single;
+                    importer.SaveAndReimport();
+                    sprite = AssetDatabase.LoadAssetAtPath<Sprite>(spritePath);
+                }
+            }
             if (sprite != null) image.sprite = sprite;
         }
         else
@@ -1690,6 +1761,13 @@ public static class UnityCliBridgeServer
                 _ => Image.Type.Simple,
             };
         }
+
+        if (arguments.Value<bool?>("preserveAspect") == true)
+            image.preserveAspect = true;
+
+        if (arguments.Value<bool?>("useNativeSize") == true && image.sprite != null)
+            image.SetNativeSize();
+
         EnsureEventSystem();
         return imageObject;
     }
