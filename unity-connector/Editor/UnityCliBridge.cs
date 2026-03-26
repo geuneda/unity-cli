@@ -1,4 +1,6 @@
 #if UNITY_EDITOR
+#nullable enable
+#pragma warning disable CS0618, CS8600, CS8602, CS8604, CS8619, CS8625
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
