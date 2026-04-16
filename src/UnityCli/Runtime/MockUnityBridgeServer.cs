@@ -15,6 +15,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
     private readonly List<SceneState> _scenes = [];
     private readonly Dictionary<string, GameObjectState> _gameObjects = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, MaterialState> _materials = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, UiElementState> _uiElements = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<PackageState> _packages = [];
     private readonly List<LogEntry> _logs = [];
     private readonly List<TestCaseState> _tests = [];
@@ -24,6 +25,9 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
     private long _cursor;
     private string? _activeScenePath;
     private string? _selectedObjectId;
+    private string? _focusedUiElementName;
+    private int _gameViewWidth = 1440;
+    private int _gameViewHeight = 3040;
     private bool _playMode;
     private bool _pauseMode;
 
@@ -226,10 +230,42 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             "console.clear" => Success("Logs cleared.", ClearLogs()),
             "console.send" => Success("Log emitted.", EmitConsoleLog(args)),
             "menu.execute" => Success("Menu command executed.", ExecuteMenu(args)),
+            "sprite.create" => Success("Sprite created.", CreateSprite(args)),
+            "ui.canvas.create" => Success("Canvas created.", CreateUiElement(args, "Canvas")),
+            "ui.button.create" => Success("Button created.", CreateUiElement(args, "Button")),
+            "ui.toggle.create" => Success("Toggle created.", CreateUiElement(args, "Toggle")),
+            "ui.slider.create" => Success("Slider created.", CreateUiElement(args, "Slider")),
+            "ui.scrollrect.create" => Success("ScrollRect created.", CreateUiElement(args, "ScrollRect")),
+            "ui.inputfield.create" => Success("InputField created.", CreateUiElement(args, "InputField")),
+            "ui.text.create" => Success("Text created.", CreateUiElement(args, "Text")),
+            "ui.image.create" => Success("Image created.", CreateUiElement(args, "Image")),
+            "ui.panel.create" => Success("Panel created.", CreateUiElement(args, "Panel")),
+            "ui.layout.add" => Success("Layout added.", AddLayout(args)),
+            "ui.recttransform.modify" => Success("RectTransform modified.", ModifyRectTransform(args)),
+            "ui.screenshot.capture" => Success("Screenshot captured.", CaptureScreenshot(args)),
+            "ui.toggle.set" => Success("Toggle set.", SetToggle(args)),
+            "ui.slider.set" => Success("Slider set.", SetSlider(args)),
+            "ui.scrollrect.set" => Success("ScrollRect set.", SetScrollRect(args)),
+            "ui.inputfield.set-text" => Success("InputField text set.", SetInputFieldText(args)),
+            "ui.focus" => Success("Focused.", FocusUiElement(args)),
+            "ui.blur" => Success("Blurred.", BlurUiElement()),
+            "ui.click" => Success("Clicked.", ClickUiElement(args)),
+            "ui.double-click" => Success("Double-clicked.", DoubleClickUi(args)),
+            "ui.long-press" => Success("Long-pressed.", LongPressUi(args)),
+            "ui.drag" => Success("Dragged.", DragUi(args)),
+            "ui.swipe" => Success("Swiped.", SwipeUi(args)),
+            "input.tap" => Success("Tapped.", InputTap(args)),
+            "input.double-tap" => Success("Double-tapped.", InputDoubleTap(args)),
+            "input.long-press" => Success("Long-pressed.", InputLongPress(args)),
+            "input.drag" => Success("Dragged.", InputDrag(args)),
+            "input.swipe" => Success("Swiped.", InputSwipe(args)),
+            "asset.import-texture" => Success("Texture imported.", ImportTexture(args)),
+            "editor.compile" => await CompileAsync(args, cancellationToken),
             "editor.play" => Success("Entered play mode.", SetPlayMode(true)),
             "editor.stop" => Success("Exited play mode.", SetPlayMode(false)),
             "editor.pause" => Success("Pause toggled.", TogglePause(args)),
             "editor.refresh" => Success("Editor refreshed.", RefreshEditor()),
+            "editor.gameview.resize" => Success("GameView resized.", ResizeGameView(args)),
             _ => new ToolCallResponse(false, $"Unsupported tool '{request.Name}'.", null, null),
         };
     }
@@ -593,11 +629,14 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
     private async Task<ToolCallResponse> RunTestsAsync(JsonObject args, CancellationToken cancellationToken)
     {
         var mode = GetString(args, "mode", "EditMode");
-        var startedEvent = Emit("tests.started", $"Tests started: {mode}", new JsonObject { ["mode"] = mode });
+        var runId = Guid.NewGuid().ToString("N");
+        var startedEvent = Emit("tests.started", $"Tests started: {mode}", new JsonObject { ["mode"] = mode, ["runId"] = runId });
         await Task.Delay(150, cancellationToken);
         var passed = _tests.Count(x => x.Mode.Equals(mode, StringComparison.OrdinalIgnoreCase));
-        var completedEvent = Emit("tests.completed", $"Tests completed: {mode}", new JsonObject { ["mode"] = mode, ["passed"] = passed, ["failed"] = 0 });
-        return Success("Tests completed.", new JsonObject { ["mode"] = mode, ["passed"] = passed, ["failed"] = 0 }, [startedEvent, completedEvent]);
+        var summary = new JsonObject { ["passed"] = passed, ["failed"] = 0, ["total"] = passed };
+        var completedEvent = Emit("tests.completed", $"Tests completed: {mode}",
+            new JsonObject { ["mode"] = mode, ["runId"] = runId, ["summary"] = summary });
+        return Success("Tests started.", new JsonObject { ["runId"] = runId, ["mode"] = mode }, [startedEvent, completedEvent]);
     }
 
     private JsonNode GetLogs(JsonObject args)
@@ -675,6 +714,272 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         return BuildEditorState();
     }
 
+    private JsonNode CreateSprite(JsonObject args)
+    {
+        var name = GetString(args, "name", "Sprite");
+        var color = GetNullableString(args, "color") ?? "#FFFFFFFF";
+        var goArgs = new JsonObject { ["name"] = name, ["primitive"] = "Sprite" };
+        if (args["position"] is JsonArray pos)
+        {
+            goArgs["position"] = pos.DeepClone();
+        }
+
+        var result = CreateGameObject(goArgs);
+        (result as JsonObject)!["color"] = color;
+        return result;
+    }
+
+    private JsonNode CreateUiElement(JsonObject args, string elementType)
+    {
+        var name = GetString(args, "name", elementType);
+        var canvasName = GetNullableString(args, "canvasName");
+        var element = new UiElementState(name, elementType)
+        {
+            CanvasName = canvasName,
+            Text = GetNullableString(args, "text"),
+            AnchoredPosition = GetNullableString(args, "anchoredPosition") ?? "0,0",
+            Size = GetNullableString(args, "size") ?? "100,100",
+            Color = GetNullableString(args, "color") ?? "#FFFFFFFF",
+            Placeholder = GetNullableString(args, "placeholder"),
+            ItemCount = (int)(args["itemCount"]?.GetValue<long>() ?? 0),
+            MinValue = (float)(args["minValue"]?.GetValue<double>() ?? 0),
+            MaxValue = (float)(args["maxValue"]?.GetValue<double>() ?? 1),
+            Value = (float)(args["value"]?.GetValue<double>() ?? 0),
+        };
+
+        lock (_gate)
+        {
+            _uiElements[name] = element;
+        }
+
+        Emit("ui.created", $"UI element created: {name}", new JsonObject { ["name"] = name, ["type"] = elementType });
+        return UiElementObject(element);
+    }
+
+    private JsonNode AddLayout(JsonObject args)
+    {
+        var name = GetString(args, "name", "Panel");
+        var layoutType = GetString(args, "layoutType", "VerticalLayoutGroup");
+        Emit("component.changed", $"Layout added: {name}/{layoutType}", new JsonObject { ["name"] = name, ["layoutType"] = layoutType });
+        return new JsonObject { ["name"] = name, ["layoutType"] = layoutType };
+    }
+
+    private JsonNode ModifyRectTransform(JsonObject args)
+    {
+        var name = GetString(args, "name", "Panel");
+        var element = RequireUiElement(name);
+        if (args.ContainsKey("anchoredPosition"))
+        {
+            element.AnchoredPosition = args["anchoredPosition"]!.ToString();
+        }
+
+        if (args.ContainsKey("size"))
+        {
+            element.Size = args["size"]!.ToString();
+        }
+
+        return UiElementObject(element);
+    }
+
+    private JsonNode CaptureScreenshot(JsonObject args)
+    {
+        var path = GetString(args, "path", "screenshot.png");
+        return new JsonObject { ["path"] = path, ["width"] = _gameViewWidth, ["height"] = _gameViewHeight };
+    }
+
+    private JsonNode SetToggle(JsonObject args)
+    {
+        var element = RequireUiElement(GetString(args, "name", "Toggle"));
+        element.IsOn = args["isOn"]?.GetValue<bool>() ?? !element.IsOn;
+        Emit("ui.toggle_changed", $"Toggle changed: {element.Name}", new JsonObject { ["name"] = element.Name, ["isOn"] = element.IsOn });
+        return UiElementObject(element);
+    }
+
+    private JsonNode SetSlider(JsonObject args)
+    {
+        var element = RequireUiElement(GetString(args, "name", "Slider"));
+        element.Value = (float)(args["value"]?.GetValue<double>() ?? element.Value);
+        Emit("ui.slider_changed", $"Slider changed: {element.Name}", new JsonObject { ["name"] = element.Name, ["value"] = element.Value });
+        return UiElementObject(element);
+    }
+
+    private JsonNode SetScrollRect(JsonObject args)
+    {
+        var element = RequireUiElement(GetString(args, "name", "ScrollRect"));
+        if (args["normalizedPosition"] is JsonArray normPos && normPos.Count >= 2)
+        {
+            element.NormalizedPositionX = (float)(normPos[0]?.GetValue<double>() ?? 0);
+            element.NormalizedPositionY = (float)(normPos[1]?.GetValue<double>() ?? 0);
+        }
+
+        return UiElementObject(element);
+    }
+
+    private JsonNode SetInputFieldText(JsonObject args)
+    {
+        var element = RequireUiElement(GetString(args, "name", "InputField"));
+        element.Text = GetNullableString(args, "text") ?? "";
+        Emit("ui.inputfield_changed", $"InputField changed: {element.Name}", new JsonObject { ["name"] = element.Name, ["text"] = element.Text });
+        return UiElementObject(element);
+    }
+
+    private JsonNode FocusUiElement(JsonObject args)
+    {
+        var name = GetString(args, "name", "");
+        var element = RequireUiElement(name);
+        lock (_gate)
+        {
+            _focusedUiElementName = name;
+        }
+
+        Emit("ui.focused", $"Focused: {name}", new JsonObject { ["name"] = name });
+        var result = UiElementObject(element);
+        result["isSelected"] = true;
+        return result;
+    }
+
+    private JsonNode BlurUiElement()
+    {
+        lock (_gate)
+        {
+            _focusedUiElementName = null;
+        }
+
+        Emit("ui.blurred", "Focus cleared.", new JsonObject { ["cleared"] = true });
+        return new JsonObject { ["cleared"] = true };
+    }
+
+    private JsonNode ClickUiElement(JsonObject args)
+    {
+        var name = GetNullableString(args, "name") ?? "Unknown";
+        var pointerId = (int)(args["pointerId"]?.GetValue<long>() ?? -1);
+        Emit("ui.clicked", $"Clicked: {name}", new JsonObject { ["name"] = name, ["pointerId"] = pointerId });
+        return new JsonObject { ["name"] = name, ["pointerId"] = pointerId, ["clicked"] = true };
+    }
+
+    private JsonNode DoubleClickUi(JsonObject args)
+    {
+        var name = GetNullableString(args, "name");
+        var normalizedPosition = GetNullableString(args, "normalizedPosition") ?? "0.5,0.5";
+        Emit("ui.double_clicked", $"Double-clicked: {name ?? normalizedPosition}", new JsonObject { ["name"] = name, ["clickCount"] = 2 });
+        return new JsonObject { ["name"] = name, ["clickCount"] = 2, ["normalizedPosition"] = normalizedPosition };
+    }
+
+    private JsonNode LongPressUi(JsonObject args)
+    {
+        var name = GetNullableString(args, "name");
+        var normalizedPosition = GetNullableString(args, "normalizedPosition") ?? "0.5,0.5";
+        var durationMs = (int)(args["durationMs"]?.GetValue<long>() ?? 500);
+        Emit("ui.long_pressed", $"Long-pressed: {name ?? normalizedPosition}", new JsonObject { ["name"] = name, ["durationMs"] = durationMs });
+        return new JsonObject { ["name"] = name, ["durationMs"] = durationMs, ["normalizedPosition"] = normalizedPosition };
+    }
+
+    private JsonNode DragUi(JsonObject args)
+    {
+        var name = GetNullableString(args, "name") ?? "Unknown";
+        var from = GetNullableString(args, "from") ?? "0,0";
+        var to = GetNullableString(args, "to") ?? "0,0";
+        var pointerId = (int)(args["pointerId"]?.GetValue<long>() ?? -1);
+        var element = _uiElements.GetValueOrDefault(name);
+        if (element is { ElementType: "ScrollRect" })
+        {
+            element.NormalizedPositionY = Math.Clamp(element.NormalizedPositionY + 0.1f, 0f, 1f);
+        }
+        else if (element is { ElementType: "Slider" })
+        {
+            element.Value = Math.Clamp(element.Value + 0.3f, element.MinValue, element.MaxValue);
+        }
+
+        Emit("ui.dragged", $"Dragged: {name}", new JsonObject { ["name"] = name, ["from"] = from, ["to"] = to, ["pointerId"] = pointerId });
+        return new JsonObject { ["name"] = name, ["from"] = from, ["to"] = to, ["pointerId"] = pointerId };
+    }
+
+    private JsonNode SwipeUi(JsonObject args)
+    {
+        var normalizedFrom = GetNullableString(args, "normalizedFrom") ?? "0.5,0.5";
+        var normalizedTo = GetNullableString(args, "normalizedTo") ?? "0.5,0.5";
+        var hitName = _uiElements.Keys.FirstOrDefault() ?? _gameObjects.Values.FirstOrDefault()?.Name ?? "Unknown";
+        Emit("ui.swiped", $"Swiped over {hitName}", new JsonObject { ["hitName"] = hitName, ["normalizedFrom"] = normalizedFrom, ["normalizedTo"] = normalizedTo });
+        return new JsonObject { ["hitName"] = hitName, ["normalizedFrom"] = normalizedFrom, ["normalizedTo"] = normalizedTo };
+    }
+
+    private JsonNode InputTap(JsonObject args)
+    {
+        var worldPosition = GetNullableString(args, "worldPosition") ?? "0,0,0";
+        var pointerId = (int)(args["pointerId"]?.GetValue<long>() ?? -1);
+        var hitName = FindHitByWorld(worldPosition);
+        Emit("input.tapped", $"Tapped: {hitName}", new JsonObject { ["hitName"] = hitName, ["worldPosition"] = worldPosition, ["pointerId"] = pointerId });
+        return new JsonObject { ["hitName"] = hitName, ["worldPosition"] = worldPosition, ["pointerId"] = pointerId };
+    }
+
+    private JsonNode InputDoubleTap(JsonObject args)
+    {
+        var worldPosition = GetNullableString(args, "worldPosition") ?? "0,0,0";
+        var pointerId = (int)(args["pointerId"]?.GetValue<long>() ?? -1);
+        var hitName = FindHitByWorld(worldPosition);
+        Emit("input.double_tapped", $"Double-tapped: {hitName}", new JsonObject { ["hitName"] = hitName, ["clickCount"] = 2, ["pointerId"] = pointerId });
+        return new JsonObject { ["hitName"] = hitName, ["clickCount"] = 2, ["worldPosition"] = worldPosition, ["pointerId"] = pointerId };
+    }
+
+    private JsonNode InputLongPress(JsonObject args)
+    {
+        var worldPosition = GetNullableString(args, "worldPosition") ?? "0,0,0";
+        var durationMs = (int)(args["durationMs"]?.GetValue<long>() ?? 500);
+        var pointerId = (int)(args["pointerId"]?.GetValue<long>() ?? -1);
+        var hitName = FindHitByWorld(worldPosition);
+        Emit("input.long_pressed", $"Long-pressed: {hitName}", new JsonObject { ["hitName"] = hitName, ["durationMs"] = durationMs, ["pointerId"] = pointerId });
+        return new JsonObject { ["hitName"] = hitName, ["durationMs"] = durationMs, ["worldPosition"] = worldPosition, ["pointerId"] = pointerId };
+    }
+
+    private JsonNode InputDrag(JsonObject args)
+    {
+        var worldFrom = GetNullableString(args, "worldFrom") ?? "0,0,0";
+        var worldTo = GetNullableString(args, "worldTo") ?? "0,0,0";
+        var pointerId = (int)(args["pointerId"]?.GetValue<long>() ?? -1);
+        var hitName = FindHitByWorld(worldFrom);
+        Emit("input.dragged", $"Dragged: {hitName}", new JsonObject { ["hitName"] = hitName, ["worldFrom"] = worldFrom, ["worldTo"] = worldTo, ["pointerId"] = pointerId });
+        return new JsonObject { ["hitName"] = hitName, ["worldFrom"] = worldFrom, ["worldTo"] = worldTo, ["pointerId"] = pointerId };
+    }
+
+    private JsonNode InputSwipe(JsonObject args)
+    {
+        var worldFrom = GetNullableString(args, "worldFrom") ?? "0,0,0";
+        var worldTo = GetNullableString(args, "worldTo") ?? "0,0,0";
+        var pointerId = (int)(args["pointerId"]?.GetValue<long>() ?? -1);
+        var hitName = FindHitByWorld(worldFrom);
+        Emit("input.swiped", $"Swiped: {hitName}", new JsonObject { ["hitName"] = hitName, ["worldFrom"] = worldFrom, ["worldTo"] = worldTo, ["pointerId"] = pointerId });
+        return new JsonObject { ["hitName"] = hitName, ["worldFrom"] = worldFrom, ["worldTo"] = worldTo, ["pointerId"] = pointerId };
+    }
+
+    private JsonNode ImportTexture(JsonObject args)
+    {
+        var path = GetString(args, "path", "Assets/Textures/imported.png");
+        Emit("asset.changed", $"Texture imported: {path}", new JsonObject { ["path"] = path, ["type"] = "Texture2D" });
+        return new JsonObject { ["path"] = path, ["imported"] = true };
+    }
+
+    private async Task<ToolCallResponse> CompileAsync(JsonObject args, CancellationToken cancellationToken)
+    {
+        var compilationId = Guid.NewGuid().ToString("N");
+        var startedEvent = Emit("editor.compilation_started", "Compilation started.",
+            new JsonObject { ["compilationId"] = compilationId });
+        await Task.Delay(100, cancellationToken);
+        var compiledEvent = Emit("editor.compiled", "Compilation completed.",
+            new JsonObject { ["compilationId"] = compilationId, ["success"] = true, ["errors"] = 0, ["warnings"] = 0 });
+        return Success("Compilation requested.", new JsonObject { ["compilationId"] = compilationId }, [startedEvent, compiledEvent]);
+    }
+
+    private JsonNode ResizeGameView(JsonObject args)
+    {
+        lock (_gate)
+        {
+            _gameViewWidth = (int)(args["width"]?.GetValue<long>() ?? _gameViewWidth);
+            _gameViewHeight = (int)(args["height"]?.GetValue<long>() ?? _gameViewHeight);
+        }
+
+        return new JsonObject { ["width"] = _gameViewWidth, ["height"] = _gameViewHeight };
+    }
+
     private JsonNode RefreshEditor()
     {
         Emit("editor.refreshed", "Editor refreshed.", null);
@@ -701,7 +1006,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         return new CapabilityResponse(
             ToolCatalog().Select(x => x.Name).ToArray(),
             ResourceCatalog().Select(x => x.Name).ToArray(),
-            ["scene.changed", "scene.loaded", "scene.saved", "hierarchy.changed", "selection.changed", "component.changed", "asset.changed", "package.changed", "tests.started", "tests.completed", "console.log", "editor.play_mode_changed", "editor.pause_changed", "editor.refreshed", "menu.executed"],
+            ["scene.changed", "scene.loaded", "scene.saved", "hierarchy.changed", "selection.changed", "component.changed", "asset.changed", "package.changed", "tests.started", "tests.completed", "console.log", "editor.compilation_started", "editor.compiled", "editor.play_mode_changed", "editor.pause_changed", "editor.refreshed", "menu.executed", "ui.created", "ui.focused", "ui.blurred", "ui.clicked", "ui.double_clicked", "ui.long_pressed", "ui.dragged", "ui.swiped", "ui.toggle_changed", "ui.slider_changed", "ui.inputfield_changed", "input.tapped", "input.double_tapped", "input.long_pressed", "input.dragged", "input.swiped"],
             new Dictionary<string, string>
             {
                 ["transport"] = "http",
@@ -729,6 +1034,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ToolDescriptor("gameobject.scale", "gameobject", "Scale a GameObject.", [], ["id", "name", "scale"]),
             new ToolDescriptor("gameobject.set-transform", "gameobject", "Set a GameObject transform.", [], ["id", "name", "position", "rotation", "scale"]),
             new ToolDescriptor("gameobject.select", "gameobject", "Select a GameObject.", [], ["id", "name"]),
+            new ToolDescriptor("sprite.create", "sprite", "Create a SpriteRenderer.", ["name"], ["position", "color"]),
             new ToolDescriptor("component.update", "component", "Patch a component.", ["type"], ["id", "name", "values"]),
             new ToolDescriptor("material.create", "material", "Create a material.", ["path"], ["name", "shader", "color"]),
             new ToolDescriptor("material.assign", "material", "Assign a material.", ["materialPath"], ["id", "name"]),
@@ -736,18 +1042,49 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ToolDescriptor("material.info", "material", "Fetch material info.", ["path"], []),
             new ToolDescriptor("asset.list", "asset", "List assets.", [], ["filter"]),
             new ToolDescriptor("asset.add-to-scene", "asset", "Instantiate an asset in the scene.", ["assetPath"], ["scenePath", "name"]),
+            new ToolDescriptor("asset.import-texture", "asset", "Import a texture.", ["path"], []),
             new ToolDescriptor("package.list", "package", "List packages.", [], []),
             new ToolDescriptor("package.add", "package", "Install a package.", ["name"], ["version"]),
             new ToolDescriptor("tests.list", "tests", "List tests.", [], ["mode"]),
-            new ToolDescriptor("tests.run", "tests", "Run tests.", [], ["mode"]),
+            new ToolDescriptor("tests.run", "tests", "Run tests.", [], ["mode", "assembly", "name"]),
             new ToolDescriptor("console.get", "console", "Fetch console logs.", [], ["level"]),
             new ToolDescriptor("console.clear", "console", "Clear console logs.", [], []),
             new ToolDescriptor("console.send", "console", "Emit a console log.", ["message"], ["level"]),
             new ToolDescriptor("menu.execute", "menu", "Execute a menu item.", ["path"], []),
+            new ToolDescriptor("ui.canvas.create", "ui", "Create a Canvas.", ["name"], []),
+            new ToolDescriptor("ui.button.create", "ui", "Create a Button.", ["canvasName", "name"], ["text", "anchoredPosition", "size"]),
+            new ToolDescriptor("ui.toggle.create", "ui", "Create a Toggle.", ["canvasName", "name"], ["text", "anchoredPosition", "size"]),
+            new ToolDescriptor("ui.slider.create", "ui", "Create a Slider.", ["canvasName", "name"], ["anchoredPosition", "size", "minValue", "maxValue", "value"]),
+            new ToolDescriptor("ui.scrollrect.create", "ui", "Create a ScrollRect.", ["canvasName", "name"], ["anchoredPosition", "size", "itemCount"]),
+            new ToolDescriptor("ui.inputfield.create", "ui", "Create an InputField.", ["canvasName", "name"], ["anchoredPosition", "size", "placeholder"]),
+            new ToolDescriptor("ui.text.create", "ui", "Create a Text element.", ["canvasName", "name"], ["text", "anchoredPosition", "size"]),
+            new ToolDescriptor("ui.image.create", "ui", "Create an Image.", ["canvasName", "name"], ["anchoredPosition", "size", "color"]),
+            new ToolDescriptor("ui.panel.create", "ui", "Create a Panel.", ["canvasName", "name"], ["anchoredPosition", "size"]),
+            new ToolDescriptor("ui.layout.add", "ui", "Add a layout component.", ["name", "layoutType"], []),
+            new ToolDescriptor("ui.recttransform.modify", "ui", "Modify RectTransform.", ["name"], ["anchoredPosition", "size"]),
+            new ToolDescriptor("ui.screenshot.capture", "ui", "Capture a screenshot.", [], ["path"]),
+            new ToolDescriptor("ui.toggle.set", "ui", "Set toggle value.", ["name"], ["isOn"]),
+            new ToolDescriptor("ui.slider.set", "ui", "Set slider value.", ["name", "value"], []),
+            new ToolDescriptor("ui.scrollrect.set", "ui", "Set scroll position.", ["name", "normalizedPosition"], []),
+            new ToolDescriptor("ui.inputfield.set-text", "ui", "Set input text.", ["name", "text"], []),
+            new ToolDescriptor("ui.focus", "ui", "Focus a UI element.", ["name"], []),
+            new ToolDescriptor("ui.blur", "ui", "Clear UI focus.", [], []),
+            new ToolDescriptor("ui.click", "ui", "Click a UI element.", [], ["name", "pointerId"]),
+            new ToolDescriptor("ui.double-click", "ui", "Double-click.", [], ["name", "normalizedPosition"]),
+            new ToolDescriptor("ui.long-press", "ui", "Long-press.", [], ["name", "normalizedPosition", "durationMs"]),
+            new ToolDescriptor("ui.drag", "ui", "Drag a UI element.", ["name"], ["from", "to", "pointerId"]),
+            new ToolDescriptor("ui.swipe", "ui", "Swipe gesture.", [], ["normalizedFrom", "normalizedTo"]),
+            new ToolDescriptor("input.tap", "input", "Tap at world position.", ["worldPosition"], ["pointerId"]),
+            new ToolDescriptor("input.double-tap", "input", "Double-tap.", ["worldPosition"], ["pointerId"]),
+            new ToolDescriptor("input.long-press", "input", "Long-press.", ["worldPosition"], ["durationMs", "pointerId"]),
+            new ToolDescriptor("input.drag", "input", "Drag gesture.", ["worldFrom", "worldTo"], ["pointerId"]),
+            new ToolDescriptor("input.swipe", "input", "Swipe gesture.", ["worldFrom", "worldTo"], ["pointerId"]),
+            new ToolDescriptor("editor.compile", "editor", "Request script compilation.", [], []),
             new ToolDescriptor("editor.play", "editor", "Enter play mode.", [], []),
             new ToolDescriptor("editor.stop", "editor", "Exit play mode.", [], []),
             new ToolDescriptor("editor.pause", "editor", "Pause or resume.", [], ["enabled"]),
             new ToolDescriptor("editor.refresh", "editor", "Refresh editor.", [], []),
+            new ToolDescriptor("editor.gameview.resize", "editor", "Resize Game view.", ["width", "height"], []),
         ];
     }
 
@@ -758,6 +1095,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ResourceDescriptor("editor/state", "Editor play/pause/selection state."),
             new ResourceDescriptor("scene/active", "Active scene summary."),
             new ResourceDescriptor("scene/hierarchy", "Hierarchy for the active scene."),
+            new ResourceDescriptor("ui/hierarchy", "UI element hierarchy."),
             new ResourceDescriptor("console/logs", "Console logs."),
             new ResourceDescriptor("tests/catalog", "Known tests."),
             new ResourceDescriptor("packages/list", "Installed packages."),
@@ -771,6 +1109,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             "editor/state" => new ResourceResponse(name, BuildEditorState()),
             "scene/active" => new ResourceResponse(name, string.IsNullOrWhiteSpace(_activeScenePath) ? null : SceneObject(_activeScenePath)),
             "scene/hierarchy" => new ResourceResponse(name, BuildHierarchy()),
+            "ui/hierarchy" => new ResourceResponse(name, BuildUiHierarchy()),
             "console/logs" => new ResourceResponse(name, GetLogs(new JsonObject())),
             "tests/catalog" => new ResourceResponse(name, ListTests(new JsonObject())),
             "packages/list" => new ResourceResponse(name, ListPackages()),
@@ -793,6 +1132,15 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         };
     }
 
+    private JsonNode BuildUiHierarchy()
+    {
+        lock (_gate)
+        {
+            var items = _uiElements.Values.Select(UiElementObject).ToArray<JsonNode?>();
+            return new JsonObject { ["items"] = new JsonArray(items) };
+        }
+    }
+
     private JsonNode BuildEditorState()
     {
         return new JsonObject
@@ -802,6 +1150,10 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             ["isPaused"] = _pauseMode,
             ["selectedObjectId"] = _selectedObjectId,
             ["activeScenePath"] = _activeScenePath,
+            ["eventSystemSelectedObjectName"] = _focusedUiElementName,
+            ["eventSystemSelectedObjectId"] = _focusedUiElementName is null ? 0 : 1,
+            ["gameViewWidth"] = _gameViewWidth,
+            ["gameViewHeight"] = _gameViewHeight,
         };
     }
 
@@ -843,6 +1195,67 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             ["shader"] = material.Shader,
             ["color"] = material.Color,
         };
+    }
+
+    private JsonObject UiElementObject(UiElementState element)
+    {
+        var obj = new JsonObject
+        {
+            ["name"] = element.Name,
+            ["type"] = element.ElementType,
+            ["canvasName"] = element.CanvasName,
+            ["text"] = element.Text,
+            ["anchoredPosition"] = element.AnchoredPosition,
+            ["size"] = element.Size,
+            ["color"] = element.Color,
+        };
+
+        if (element.ElementType == "Toggle")
+        {
+            obj["toggle"] = new JsonObject { ["isOn"] = element.IsOn };
+            obj["isOn"] = element.IsOn;
+        }
+
+        if (element.ElementType == "Slider")
+        {
+            obj["slider"] = new JsonObject { ["value"] = element.Value, ["minValue"] = element.MinValue, ["maxValue"] = element.MaxValue };
+            obj["value"] = element.Value;
+        }
+
+        if (element.ElementType == "ScrollRect")
+        {
+            obj["scrollRect"] = new JsonObject
+            {
+                ["normalizedPosition"] = new JsonArray(
+                    JsonValue.Create(element.NormalizedPositionX),
+                    JsonValue.Create(element.NormalizedPositionY)),
+            };
+            obj["normalizedPosition"] = new JsonArray(
+                JsonValue.Create(element.NormalizedPositionX),
+                JsonValue.Create(element.NormalizedPositionY));
+        }
+
+        if (element.ElementType == "InputField")
+        {
+            obj["placeholder"] = element.Placeholder;
+        }
+
+        return obj;
+    }
+
+    private UiElementState RequireUiElement(string name)
+    {
+        lock (_gate)
+        {
+            return _uiElements.TryGetValue(name, out var element)
+                ? element
+                : throw new InvalidOperationException($"UI element '{name}' was not found.");
+        }
+    }
+
+    private string FindHitByWorld(string worldPosition)
+    {
+        return _gameObjects.Values.FirstOrDefault()?.Name ?? "World";
     }
 
     private BridgeEvent Emit(string type, string message, JsonNode? data)
@@ -1062,4 +1475,37 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
     private sealed record LogEntry(DateTimeOffset Timestamp, string Level, string Message);
 
     private sealed record TestCaseState(string Name, string Mode);
+
+    private sealed class UiElementState(string name, string elementType)
+    {
+        public string Name { get; } = name;
+
+        public string ElementType { get; } = elementType;
+
+        public string? CanvasName { get; set; }
+
+        public string? Text { get; set; }
+
+        public string AnchoredPosition { get; set; } = "0,0";
+
+        public string Size { get; set; } = "100,100";
+
+        public string Color { get; set; } = "#FFFFFFFF";
+
+        public string? Placeholder { get; set; }
+
+        public int ItemCount { get; set; }
+
+        public bool IsOn { get; set; }
+
+        public float Value { get; set; }
+
+        public float MinValue { get; set; }
+
+        public float MaxValue { get; set; } = 1;
+
+        public float NormalizedPositionX { get; set; }
+
+        public float NormalizedPositionY { get; set; } = 1;
+    }
 }

@@ -307,6 +307,9 @@ public sealed class CliApplication
 
     private async Task<int> RunTestsCommandAsync(BridgeClient client, GlobalOptions options, JsonObject arguments, CancellationToken cancellationToken)
     {
+        var status = await client.GetStatusAsync(cancellationToken);
+        var cursor = status.EventCursor;
+
         var startResponse = await client.CallToolAsync("tests.run", arguments, cancellationToken);
         if (!startResponse.Success)
         {
@@ -321,6 +324,17 @@ public sealed class CliApplication
             return 0;
         }
 
+        if (startResponse.Events is { Count: > 0 })
+        {
+            var inlineCompleted = startResponse.Events
+                .LastOrDefault(@event => @event.Type == "tests.completed"
+                    && string.Equals(@event.Data?["runId"]?.GetValue<string>(), runId, StringComparison.OrdinalIgnoreCase));
+            if (inlineCompleted != null)
+            {
+                return EmitTestResult(inlineCompleted);
+            }
+        }
+
         var timeoutMs = Math.Max(options.TimeoutMs, 60000);
         var deadline = DateTimeOffset.UtcNow.AddMilliseconds(timeoutMs);
 
@@ -328,25 +342,22 @@ public sealed class CliApplication
         {
             try
             {
-                var response = await client.PollEventsAsync(0, 1000, cancellationToken);
+                var response = await client.PollEventsAsync(cursor, 1000, cancellationToken);
+                cursor = response.Cursor;
+
                 var completed = response.Events
                     .LastOrDefault(@event => @event.Type == "tests.completed"
                         && string.Equals(@event.Data?["runId"]?.GetValue<string>(), runId, StringComparison.OrdinalIgnoreCase));
 
                 if (completed != null)
                 {
-                    var summary = completed.Data?["summary"];
-                    var failed = summary?["failed"]?.GetValue<int>() ?? 0;
-                    var finalResponse = new ToolCallResponse(
-                        failed == 0,
-                        completed.Message,
-                        summary,
-                        new[] { completed });
-                    _console.WriteLine(JsonHelpers.ToPrettyJson(finalResponse));
-                    return failed == 0 ? 0 : 1;
+                    return EmitTestResult(completed);
                 }
             }
-            catch
+            catch (HttpRequestException)
+            {
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
             }
 
@@ -356,8 +367,24 @@ public sealed class CliApplication
         throw new TimeoutException($"Timed out waiting for test completion for run '{runId}'.");
     }
 
+    private int EmitTestResult(BridgeEvent completed)
+    {
+        var summary = completed.Data?["summary"];
+        var failed = summary?["failed"]?.GetValue<int>() ?? 0;
+        var finalResponse = new ToolCallResponse(
+            failed == 0,
+            completed.Message,
+            summary,
+            new[] { completed });
+        _console.WriteLine(JsonHelpers.ToPrettyJson(finalResponse));
+        return failed == 0 ? 0 : 1;
+    }
+
     private async Task<int> RunCompileCommandAsync(BridgeClient client, GlobalOptions options, JsonObject arguments, CancellationToken cancellationToken)
     {
+        var status = await client.GetStatusAsync(cancellationToken);
+        var cursor = status.EventCursor;
+
         var startResponse = await client.CallToolAsync("editor.compile", arguments, cancellationToken);
         if (!startResponse.Success)
         {
@@ -372,6 +399,17 @@ public sealed class CliApplication
             return 0;
         }
 
+        if (startResponse.Events is { Count: > 0 })
+        {
+            var inlineCompleted = startResponse.Events
+                .LastOrDefault(@event => @event.Type == "editor.compiled"
+                    && string.Equals(@event.Data?["compilationId"]?.GetValue<string>(), compilationId, StringComparison.OrdinalIgnoreCase));
+            if (inlineCompleted != null)
+            {
+                return EmitCompileResult(inlineCompleted);
+            }
+        }
+
         var timeoutMs = Math.Max(options.TimeoutMs, 120000);
         var deadline = DateTimeOffset.UtcNow.AddMilliseconds(timeoutMs);
 
@@ -379,24 +417,22 @@ public sealed class CliApplication
         {
             try
             {
-                var response = await client.PollEventsAsync(0, 1000, cancellationToken);
+                var response = await client.PollEventsAsync(cursor, 1000, cancellationToken);
+                cursor = response.Cursor;
+
                 var completed = response.Events
                     .LastOrDefault(@event => @event.Type == "editor.compiled"
                         && string.Equals(@event.Data?["compilationId"]?.GetValue<string>(), compilationId, StringComparison.OrdinalIgnoreCase));
 
                 if (completed != null)
                 {
-                    var success = completed.Data?["success"]?.GetValue<bool>() ?? false;
-                    var finalResponse = new ToolCallResponse(
-                        success,
-                        completed.Message,
-                        completed.Data,
-                        new[] { completed });
-                    _console.WriteLine(JsonHelpers.ToPrettyJson(finalResponse));
-                    return success ? 0 : 1;
+                    return EmitCompileResult(completed);
                 }
             }
-            catch
+            catch (HttpRequestException)
+            {
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
             }
 
@@ -404,6 +440,18 @@ public sealed class CliApplication
         }
 
         throw new TimeoutException($"Timed out waiting for script compilation completion for '{compilationId}'.");
+    }
+
+    private int EmitCompileResult(BridgeEvent completed)
+    {
+        var success = completed.Data?["success"]?.GetValue<bool>() ?? false;
+        var finalResponse = new ToolCallResponse(
+            success,
+            completed.Message,
+            completed.Data,
+            new[] { completed });
+        _console.WriteLine(JsonHelpers.ToPrettyJson(finalResponse));
+        return success ? 0 : 1;
     }
 
     private async Task<int> RunPlayModeCommandAsync(BridgeClient client, GlobalOptions options, string toolName, JsonObject arguments, CancellationToken cancellationToken)
@@ -441,7 +489,10 @@ public sealed class CliApplication
                     return 0;
                 }
             }
-            catch
+            catch (HttpRequestException)
+            {
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
             }
 
