@@ -78,7 +78,10 @@ namespace UnityCliBridge
             Tool("scene.save", "Save the active scene."),
             Tool("scene.info", "Return the active scene summary."),
             Tool("scene.delete", "Delete a scene asset.", Req("path", "string", "Scene asset path to delete.")),
-            Tool("scene.unload", "Close (unload) the active scene."),
+            Tool("scene.unload", "Close (unload) a scene; the active scene when no path is given.", Arg("path", "string", "Loaded scene path to unload. Default active scene.")),
+            Tool("scene.open-additive", "Open a scene additively (multi-scene).", Req("path", "string", "Scene asset path to open additively.")),
+            Tool("scene.set-active", "Set the active scene among the loaded scenes.", Req("path", "string", "Loaded scene path to make active.")),
+            Tool("scene.list-loaded", "List all currently loaded scenes."),
 
             // gameobject
             Tool("gameobject.create", "Create a GameObject (optionally a primitive).",
@@ -116,9 +119,21 @@ namespace UnityCliBridge
             // sprite
             Tool("sprite.create", "Create a 2D sprite GameObject.",
                 Arg("name", "string", "Name. Default Sprite."),
+                Arg("sprite", "string", "Sprite asset path; supports path::subName for sheet subsprites."),
                 Arg("color", "color", "Tint hex e.g. #FF8A00FF."),
+                Arg("sortingLayer", "string", "Sorting layer name."),
+                Arg("sortingOrder", "int", "Order in layer."),
+                Arg("flipX", "bool", "Flip horizontally."),
+                Arg("flipY", "bool", "Flip vertically."),
                 Arg("position", "vector3", "World position."),
                 Arg("collider", "bool", "Add a BoxCollider2D. Default true.")),
+            Tool("sprite.set", "Modify an existing SpriteRenderer.", WithTarget(
+                Arg("sprite", "string", "Sprite asset path; supports path::subName."),
+                Arg("color", "color", "Tint hex."),
+                Arg("sortingLayer", "string", "Sorting layer name."),
+                Arg("sortingOrder", "int", "Order in layer."),
+                Arg("flipX", "bool", "Flip horizontally."),
+                Arg("flipY", "bool", "Flip vertically."))),
 
             // component
             Tool("component.update", "Add-or-get a component and set properties/serialized fields.", WithTarget(
@@ -153,6 +168,23 @@ namespace UnityCliBridge
                 Arg("spriteMode", "int", "1 Single (default), 2 Multiple."),
                 Arg("maxTextureSize", "int", "Max texture size."),
                 Arg("filterMode", "string", "Bilinear (default), Point, Trilinear.")),
+            Tool("asset.manage", "Manage assets (create-folder|move|delete|rename|duplicate).",
+                Req("op", "string", "Operation: create-folder, move, delete, rename, duplicate."),
+                Arg("parent", "string", "create-folder: parent folder. Default Assets."),
+                Arg("folderName", "string", "create-folder: new folder name."),
+                Arg("from", "string", "move: source asset path."),
+                Arg("to", "string", "move/duplicate: target asset path."),
+                Arg("path", "string", "delete/rename/duplicate: asset path."),
+                Arg("paths", "json", "delete: array of asset paths (alternative to path)."),
+                Arg("newName", "string", "rename: new asset name (no extension change).")),
+
+            // scriptableobject
+            Tool("asset.create-scriptableobject", "Create a ScriptableObject asset and inject serialized values.",
+                Req("type", "string", "ScriptableObject type name (full or short)."),
+                Req("path", "string", "Asset path e.g. Assets/Configs/Foo.asset."),
+                Arg("values", "json", "Object of member=value to assign after creation.")),
+            Tool("scriptableobject.get", "Read a ScriptableObject asset's serialized properties.", Req("path", "string", "ScriptableObject asset path.")),
+            Tool("scriptableobject.list", "List ScriptableObject assets matching a filter.", Arg("filter", "string", "AssetDatabase filter. Default t:ScriptableObject.")),
 
             // package
             Tool("package.list", "List installed packages."),
@@ -160,12 +192,16 @@ namespace UnityCliBridge
 
             // tests
             Tool("tests.list", "List registered tests.", Arg("mode", "string", "EditMode, PlayMode or All.")),
-            Tool("tests.run", "Run tests and wait for completion.", Arg("mode", "string", "EditMode or PlayMode."), Arg("name", "string", "Single test full name."), Arg("names", "json", "Array of test full names.")),
+            Tool("tests.run", "Run tests and wait for completion.", Arg("mode", "string", "EditMode or PlayMode."), Arg("name", "string", "Single test full name."), Arg("names", "json", "Array of test full names."), Arg("category", "string", "Comma-separated NUnit categories (Filter.categoryNames)."), Arg("regex", "string", "Client-side full-name regex filter (EditMode only).")),
 
             // console
             Tool("console.get", "Return observed console logs."),
             Tool("console.clear", "Clear the console log buffer."),
             Tool("console.send", "Emit a console log.", Arg("message", "string", "Log message. Default unity-cli."), Arg("level", "string", "info, warning or error.")),
+            Tool("console.logs", "Query observed console logs from a cursor with optional level/text filters.",
+                Arg("sinceCursor", "long", "Only logs with event cursor greater than this. Default 0."),
+                Arg("level", "string", "Filter by LogType: Log, Warning, Error, Assert, Exception."),
+                Arg("contains", "string", "Case-insensitive substring filter over message and stack trace.")),
 
             // ui creation
             Tool("ui.canvas.create", "Create a Canvas with a CanvasScaler.", Arg("name", "string", "Canvas name."), Arg("referenceResolution", "vector2", "CanvasScaler reference resolution."), Arg("screenMatchMode", "string", "Expand (default), Shrink, MatchWidthOrHeight."), Arg("matchWidthOrHeight", "float", "0..1 match.")),
@@ -233,6 +269,19 @@ namespace UnityCliBridge
             Tool("editor.refresh", "Refresh the AssetDatabase."),
             Tool("editor.compile", "Request script compilation and wait."),
             Tool("editor.gameview.resize", "Resize the Game View.", Arg("width", "int", "Width."), Arg("height", "int", "Height.")),
+
+            // prefab
+            Tool("prefab.create", "Save a scene GameObject as a prefab asset (variant if the source is already a prefab instance).", WithTarget(
+                Req("path", "string", "Prefab asset path ending in .prefab."))),
+            Tool("prefab.instantiate", "Instantiate a prefab asset into the active scene.",
+                Req("path", "string", "Prefab asset path."),
+                Arg("name", "string", "Name for the instance. Default the prefab name."),
+                Arg("position", "vector3", "World position x,y,z."),
+                Arg("rotation", "vector3", "Euler rotation x,y,z."),
+                Arg("scale", "vector3", "Local scale x,y,z.")),
+            Tool("prefab.apply", "Apply a prefab instance's overrides back to its source asset.", TargetArgs),
+            Tool("prefab.unpack", "Unpack a prefab instance into plain GameObjects.", WithTarget(
+                Arg("completely", "bool", "Unpack nested prefabs too (Completely). Default false (OutermostRoot)."))),
         };
 
         private static ToolArg[] UiCreateArgs(params ToolArg[] extra)
@@ -263,8 +312,10 @@ namespace UnityCliBridge
             new ResourceMeta("ui/hierarchy", "UI hierarchy for active canvases."),
             new ResourceMeta("console/logs", "Observed console logs."),
             new ResourceMeta("tests/catalog", "Known tests."),
+            new ResourceMeta("tests/last-run", "Last completed test run summary."),
             new ResourceMeta("packages/list", "Installed packages."),
             new ResourceMeta("project/info", "Project, build target, render pipeline and scenes-in-build info."),
+            new ResourceMeta("addressables/list", "Addressables groups and entries (reflection; available:false when package absent)."),
         };
 
         // All event types the bridge can emit. capabilities.events derives from here, so it can

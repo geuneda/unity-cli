@@ -30,6 +30,8 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
     private int _gameViewHeight = 3040;
     private bool _playMode;
     private bool _pauseMode;
+    private int _flakyCalls;
+    private JsonObject? _lastTestRun;
 
     public MockUnityBridgeServer()
     {
@@ -159,10 +161,15 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             context.Response.StatusCode = 404;
             await WriteTextAsync(context, "not found");
         }
+        catch (MockBridgeException exception)
+        {
+            context.Response.StatusCode = exception.Status;
+            await WriteJsonAsync(context, new ToolCallResponse(false, exception.Message, null, null, exception.Code));
+        }
         catch (Exception exception)
         {
             context.Response.StatusCode = 500;
-            await WriteJsonAsync(context, new ToolCallResponse(false, exception.Message, null, null));
+            await WriteJsonAsync(context, new ToolCallResponse(false, exception.Message, null, null, "internal_error"));
         }
     }
 
@@ -205,6 +212,9 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             "scene.info" => Success("Scene info fetched.", SceneInfo(args)),
             "scene.delete" => Success("Scene deleted.", DeleteScene(args)),
             "scene.unload" => Success("Scene unloaded.", UnloadScene(args)),
+            "scene.open-additive" => Success("Scene opened additively.", OpenSceneAdditive(args)),
+            "scene.set-active" => Success("Active scene set.", SetActiveScene(args)),
+            "scene.list-loaded" => Success("Loaded scenes listed.", ListLoadedScenes()),
             "gameobject.create" => Success("GameObject created.", CreateGameObject(args)),
             "gameobject.get" => Success("GameObject fetched.", GetGameObject(args)),
             "gameobject.delete" => Success("GameObject deleted.", DeleteGameObject(args)),
@@ -217,7 +227,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             "gameobject.select" => Success("GameObject selected.", SelectGameObject(args)),
             "gameobject.find" => Success("GameObjects found.", FindGameObjects(args)),
             "gameobject.set-properties" => Success("GameObject properties set.", SetGameObjectProperties(args)),
-            "component.update" => Success("Component updated.", UpdateComponent(args)),
+            "component.update" => UpdateComponentResponse(args),
             "component.list" => Success("Components listed.", ListComponents(args)),
             "component.get" => GetComponentResponse(args),
             "component.add" => AddComponentResponse(args),
@@ -235,8 +245,10 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             "console.get" => Success("Logs fetched.", GetLogs(args)),
             "console.clear" => Success("Logs cleared.", ClearLogs()),
             "console.send" => Success("Log emitted.", EmitConsoleLog(args)),
+            "console.logs" => Success("Console logs queried.", QueryConsoleLogs(args)),
             "menu.execute" => Success("Menu command executed.", ExecuteMenu(args)),
             "sprite.create" => Success("Sprite created.", CreateSprite(args)),
+            "sprite.set" => Success("SpriteRenderer updated.", SetSpriteRenderer(args)),
             "ui.canvas.create" => Success("Canvas created.", CreateUiElement(args, "Canvas")),
             "ui.button.create" => Success("Button created.", CreateUiElement(args, "Button")),
             "ui.toggle.create" => Success("Toggle created.", CreateUiElement(args, "Toggle")),
@@ -266,19 +278,60 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             "input.drag" => Success("Dragged.", InputDrag(args)),
             "input.swipe" => Success("Swiped.", InputSwipe(args)),
             "asset.import-texture" => Success("Texture imported.", ImportTexture(args)),
+            "asset.manage" => ManageAsset(args),
+            "asset.create-scriptableobject" => Success("ScriptableObject created.", CreateScriptableObjectAsset(args)),
+            "scriptableobject.get" => Success("ScriptableObject fetched.", GetScriptableObject(args)),
+            "scriptableobject.list" => Success("ScriptableObjects listed.", ListScriptableObjects(args)),
             "editor.compile" => await CompileAsync(args, cancellationToken),
             "editor.play" => Success("Entered play mode.", SetPlayMode(true)),
             "editor.stop" => Success("Exited play mode.", SetPlayMode(false)),
             "editor.pause" => Success("Pause toggled.", TogglePause(args)),
             "editor.refresh" => Success("Editor refreshed.", RefreshEditor()),
             "editor.gameview.resize" => Success("GameView resized.", ResizeGameView(args)),
-            _ => new ToolCallResponse(false, $"Unsupported tool '{request.Name}'.", null, null),
+            "prefab.create" => Success("Prefab created.", CreatePrefabAsset(args)),
+            "prefab.instantiate" => Success("Prefab instantiated.", InstantiatePrefabAsset(args)),
+            "prefab.apply" => Success("Prefab overrides applied.", ApplyPrefabOverrides(args)),
+            "prefab.unpack" => Success("Prefab unpacked.", UnpackPrefabInstance(args)),
+            "mock.flaky" => FlakyResponse(args),
+            _ => new ToolCallResponse(false, $"Unsupported tool '{request.Name}'.", null, null, "unknown_tool"),
         };
     }
 
     private ToolCallResponse Success(string message, JsonNode? result, IReadOnlyList<BridgeEvent>? events = null)
     {
         return new ToolCallResponse(true, message, result, events);
+    }
+
+    /// <summary>지정 횟수(failuresBeforeSuccess)만큼 실패한 뒤 성공하는 테스트 전용 도구. 워크플로 재시도 검증용이며 광고 목록(ToolCatalog/capabilities)에 노출하지 않는다.</summary>
+    /// <param name="args">failuresBeforeSuccess(기본 1): 성공 전까지 실패할 횟수.</param>
+    /// <returns>누적 호출 횟수가 임계치를 넘으면 성공, 아니면 실패 응답.</returns>
+    private ToolCallResponse FlakyResponse(JsonObject args)
+    {
+        var failuresBeforeSuccess = (int)(args["failuresBeforeSuccess"]?.GetValue<long>() ?? 1);
+        var attempt = System.Threading.Interlocked.Increment(ref _flakyCalls);
+        return attempt > failuresBeforeSuccess
+            ? Success($"Flaky succeeded on attempt {attempt}.", new JsonObject { ["attempt"] = attempt })
+            : new ToolCallResponse(false, $"Flaky failure {attempt}.", null, null, "flaky");
+    }
+
+    /// <summary>실제 브리지의 BridgeException 을 모사하여 코드와 HTTP 상태를 가지는 계약 오류.</summary>
+    private sealed class MockBridgeException : Exception
+    {
+        /// <summary>오류 코드, HTTP 상태, 메시지로 계약 오류를 생성한다.</summary>
+        /// <param name="code">안정적 오류 코드.</param>
+        /// <param name="status">매핑할 HTTP 상태 코드.</param>
+        /// <param name="message">오류 메시지.</param>
+        public MockBridgeException(string code, int status, string message) : base(message)
+        {
+            Code = code;
+            Status = status;
+        }
+
+        /// <summary>안정적 오류 코드(not_found, missing_arg 등).</summary>
+        public string Code { get; }
+
+        /// <summary>이 오류에 매핑할 HTTP 상태 코드.</summary>
+        public int Status { get; }
     }
 
     private JsonNode CreateScene(JsonObject args)
@@ -347,6 +400,11 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
 
     private JsonNode DeleteScene(JsonObject args)
     {
+        if (args["path"] is null)
+        {
+            throw new MockBridgeException("missing_arg", 400, "path is required.");
+        }
+
         var path = GetString(args, "path", _activeScenePath ?? "Assets/Scenes/SampleScene.unity");
         lock (_gate)
         {
@@ -377,6 +435,81 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
 
         Emit("scene.unloaded", $"Scene unloaded: {path}", new JsonObject { ["path"] = path });
         return SceneObject(path);
+    }
+
+    /// <summary>scene.open-additive 를 모사한다. 미존재 씬은 추가하고 로드 상태로 만든다.</summary>
+    /// <param name="args">씬 path 인자를 담은 JSON 오브젝트.</param>
+    /// <returns>로드된 씬 요약(SceneObject), path 누락 시 missing_arg 예외.</returns>
+    private JsonNode OpenSceneAdditive(JsonObject args)
+    {
+        if (args["path"] is null)
+        {
+            throw new MockBridgeException("missing_arg", 400, "path is required.");
+        }
+
+        var path = GetString(args, "path", "Assets/Scenes/Additive.unity");
+        lock (_gate)
+        {
+            var existing = _scenes.FirstOrDefault(x => x.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
+            if (existing is null)
+            {
+                existing = new SceneState(path, Path.GetFileNameWithoutExtension(path), true, false);
+                _scenes.Add(existing);
+            }
+
+            existing.IsLoaded = true;
+            _activeScenePath ??= path;
+        }
+
+        Emit("scene.loaded", $"Scene opened additively: {path}", new JsonObject { ["path"] = path });
+        return SceneObject(path);
+    }
+
+    /// <summary>scene.set-active 를 모사한다. 로드되지 않은 씬은 not_found 로 거부한다.</summary>
+    /// <param name="args">씬 path 인자를 담은 JSON 오브젝트.</param>
+    /// <returns>활성으로 설정된 씬 요약(SceneObject).</returns>
+    private JsonNode SetActiveScene(JsonObject args)
+    {
+        if (args["path"] is null)
+        {
+            throw new MockBridgeException("missing_arg", 400, "path is required.");
+        }
+
+        var path = GetString(args, "path", string.Empty);
+        lock (_gate)
+        {
+            var scene = RequireScene(path);
+            if (!scene.IsLoaded)
+            {
+                throw new MockBridgeException("not_found", 404, $"Loaded scene not found: {path}");
+            }
+
+            _activeScenePath = path;
+        }
+
+        Emit("scene.changed", $"Active scene set: {path}", new JsonObject { ["path"] = path });
+        return SceneObject(path);
+    }
+
+    /// <summary>scene.list-loaded 를 모사한다. 로드된 씬 목록과 활성 씬 경로를 반환한다.</summary>
+    /// <returns>scenes 배열, count, activeScenePath 를 담은 JSON 오브젝트.</returns>
+    private JsonNode ListLoadedScenes()
+    {
+        string[] loadedPaths;
+        string? active;
+        lock (_gate)
+        {
+            loadedPaths = _scenes.Where(x => x.IsLoaded).Select(x => x.Path).ToArray();
+            active = _activeScenePath;
+        }
+
+        var scenes = new JsonArray(loadedPaths.Select(p => (JsonNode?)SceneObject(p)).ToArray());
+        return new JsonObject
+        {
+            ["scenes"] = scenes,
+            ["count"] = loadedPaths.Length,
+            ["activeScenePath"] = active,
+        };
     }
 
     private JsonNode CreateGameObject(JsonObject args)
@@ -493,19 +626,37 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         return GameObjectObject(state);
     }
 
-    private JsonNode UpdateComponent(JsonObject args)
+    /// <summary>component.update 목 핸들러. 컴포넌트가 없으면 생성하고 values 를 병합하며 applied/skipped 를 함께 반환한다.</summary>
+    private ToolCallResponse UpdateComponentResponse(JsonObject args)
     {
         var state = ResolveGameObject(args);
         var type = GetString(args, "type", "Transform");
-        var values = JsonHelpers.EnsureObject(args["values"]);
-
+        var values = JsonHelpers.EnsureObject(JsonHelpers.ReplaceVariables(args["values"], new Dictionary<string, string>()));
         lock (_gate)
         {
-            state.Components[type] = JsonHelpers.EnsureObject(JsonHelpers.ReplaceVariables(values, new Dictionary<string, string>()));
-        }
+            if (!state.Components.TryGetValue(type, out var existing))
+            {
+                existing = new JsonObject();
+                state.Components[type] = existing;
+            }
 
-        Emit("component.changed", $"Component updated: {state.Name}/{type}", new JsonObject { ["id"] = state.Id, ["type"] = type });
-        return GameObjectObject(state);
+            var applied = new JsonArray();
+            foreach (var pair in values)
+            {
+                existing[pair.Key] = JsonHelpers.DeepClone(pair.Value);
+                applied.Add(pair.Key);
+            }
+
+            Emit("component.changed", $"Component updated: {state.Name}/{type}", new JsonObject { ["id"] = state.Id, ["type"] = type });
+            return Success("Component updated.", new JsonObject
+            {
+                ["id"] = state.Id,
+                ["name"] = state.Name,
+                ["type"] = type,
+                ["applied"] = applied,
+                ["skipped"] = new JsonArray(),
+            });
+        }
     }
 
     private JsonNode ListComponents(JsonObject args)
@@ -549,7 +700,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         {
             if (string.IsNullOrEmpty(type) || !state.Components.TryGetValue(type, out var values))
             {
-                return new ToolCallResponse(false, $"Component '{type}' not found on '{state.Name}'.", null, null);
+                return new ToolCallResponse(false, $"Component '{type}' not found on '{state.Name}'.", null, null, "not_found");
             }
 
             return Success("Component read.", new JsonObject
@@ -568,7 +719,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         var type = GetString(args, "type", string.Empty);
         if (string.IsNullOrEmpty(type))
         {
-            return new ToolCallResponse(false, "type is required.", null, null);
+            return new ToolCallResponse(false, "type is required.", null, null, "missing_arg");
         }
 
         var allowDuplicate = args["allowDuplicate"] is not null && bool.TryParse(args["allowDuplicate"]!.ToString(), out var ad) && ad;
@@ -612,7 +763,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         {
             if (!state.Components.Remove(type))
             {
-                return new ToolCallResponse(false, $"Component '{type}' not found on '{state.Name}'.", null, null);
+                return new ToolCallResponse(false, $"Component '{type}' not found on '{state.Name}'.", null, null, "not_found");
             }
 
             Emit("component.changed", $"Component removed: {state.Name}/{type}", new JsonObject { ["id"] = state.Id, ["type"] = type });
@@ -727,6 +878,26 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         };
     }
 
+    private JsonNode BuildAddressablesList()
+    {
+        return new JsonObject
+        {
+            ["groups"] = new JsonArray(
+                new JsonObject
+                {
+                    ["name"] = "Default Local Group",
+                    ["entries"] = new JsonArray(
+                        new JsonObject
+                        {
+                            ["address"] = "Assets/Mock/Cube.prefab",
+                            ["guid"] = "00000000000000000000000000000000",
+                            ["assetPath"] = "Assets/Mock/Cube.prefab",
+                            ["labels"] = new JsonArray("default"),
+                        }),
+                }),
+        };
+    }
+
     private JsonNode CreateMaterial(JsonObject args)
     {
         var path = GetString(args, "path", $"Assets/Materials/{GetString(args, "name", "Material")}.mat");
@@ -809,6 +980,83 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         return result;
     }
 
+    /// <summary>prefab.create 를 모사한다. 원본이 프리팹(primitive==Prefab)이면 Variant, 아니면 Regular 로 보고한다.</summary>
+    /// <param name="args">대상 GameObject(id/name)와 path 인자.</param>
+    /// <returns>prefabAssetPath/prefabAssetType/isPrefabInstance 가 추가된 GameObject 요약.</returns>
+    private JsonNode CreatePrefabAsset(JsonObject args)
+    {
+        var path = GetString(args, "path", "Assets/Prefabs/New.prefab");
+        var state = ResolveGameObject(args);
+        var assetType = state.Primitive == "Prefab" ? "Variant" : "Regular";
+        Emit("asset.changed", $"Prefab created: {path}", new JsonObject { ["path"] = path, ["type"] = "Prefab" });
+        var result = GameObjectObject(state);
+        result["prefabAssetPath"] = path;
+        result["prefabAssetType"] = assetType;
+        result["isPrefabInstance"] = true;
+        return result;
+    }
+
+    /// <summary>prefab.instantiate 를 모사한다. CreateGameObject 로 씬에 인스턴스를 추가한다.</summary>
+    /// <param name="args">프리팹 path, 선택적 name 과 position/scale 인자.</param>
+    /// <returns>prefabAssetPath/prefabAssetType/isPrefabInstance 가 추가된 GameObject 요약.</returns>
+    private JsonNode InstantiatePrefabAsset(JsonObject args)
+    {
+        var path = GetString(args, "path", "Assets/Prefabs/Cube.prefab");
+        var name = GetString(args, "name", Path.GetFileNameWithoutExtension(path));
+        var result = CreateGameObject(new JsonObject
+        {
+            ["name"] = name,
+            ["scenePath"] = GetString(args, "scenePath", _activeScenePath ?? "Assets/Scenes/SampleScene.unity"),
+            ["primitive"] = "Prefab",
+            ["position"] = args["position"]?.DeepClone(),
+            ["scale"] = args["scale"]?.DeepClone(),
+        }) as JsonObject ?? new JsonObject();
+
+        result["prefabAssetPath"] = path;
+        result["prefabAssetType"] = "Regular";
+        result["isPrefabInstance"] = true;
+        return result;
+    }
+
+    /// <summary>prefab.apply 를 모사한다. 대상이 프리팹 인스턴스가 아니면 계약 오류를 던진다.</summary>
+    /// <param name="args">대상 GameObject(id/name) 인자.</param>
+    /// <returns>prefabAssetType/isPrefabInstance 가 추가된 GameObject 요약.</returns>
+    private JsonNode ApplyPrefabOverrides(JsonObject args)
+    {
+        var state = ResolveGameObject(args);
+        if (state.Primitive != "Prefab")
+        {
+            throw new MockBridgeException("internal_error", 500, $"GameObject '{state.Name}' is not a prefab instance.");
+        }
+
+        Emit("asset.changed", $"Prefab overrides applied: {state.Name}", new JsonObject { ["action"] = "apply" });
+        var result = GameObjectObject(state);
+        result["prefabAssetType"] = "Regular";
+        result["isPrefabInstance"] = true;
+        return result;
+    }
+
+    /// <summary>prefab.unpack 을 모사한다. 대상이 프리팹 인스턴스가 아니면 계약 오류를 던지고, 언팩 후에는 더 이상 인스턴스가 아니다.</summary>
+    /// <param name="args">대상 GameObject(id/name)와 completely 인자.</param>
+    /// <returns>언팩된 GameObject 요약.</returns>
+    private JsonNode UnpackPrefabInstance(JsonObject args)
+    {
+        var state = ResolveGameObject(args);
+        if (state.Primitive != "Prefab")
+        {
+            throw new MockBridgeException("internal_error", 500, $"GameObject '{state.Name}' is not a prefab instance.");
+        }
+
+        var completely = args["completely"]?.GetValue<bool?>() ?? false;
+        lock (_gate)
+        {
+            state.Primitive = null;
+        }
+
+        Emit("hierarchy.changed", $"Prefab unpacked: {state.Name}", new JsonObject { ["completely"] = completely });
+        return GameObjectObject(state);
+    }
+
     private JsonNode ListPackages()
     {
         return new JsonObject
@@ -854,11 +1102,59 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
     private async Task<ToolCallResponse> RunTestsAsync(JsonObject args, CancellationToken cancellationToken)
     {
         var mode = GetString(args, "mode", "EditMode");
+        var category = GetNullableString(args, "category");
+        var regex = GetNullableString(args, "regex");
         var runId = Guid.NewGuid().ToString("N");
         var startedEvent = Emit("tests.started", $"Tests started: {mode}", new JsonObject { ["mode"] = mode, ["runId"] = runId });
         await Task.Delay(150, cancellationToken);
-        var passed = _tests.Count(x => x.Mode.Equals(mode, StringComparison.OrdinalIgnoreCase));
-        var summary = new JsonObject { ["passed"] = passed, ["failed"] = 0, ["total"] = passed };
+
+        IEnumerable<TestCaseState> selected = _tests.Where(x => x.Mode.Equals(mode, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            selected = selected.Where(x => x.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(regex))
+        {
+            try
+            {
+                selected = selected.Where(x => System.Text.RegularExpressions.Regex.IsMatch(x.Name, regex));
+            }
+            catch (Exception ex)
+            {
+                return new ToolCallResponse(false, $"Invalid regex: {ex.Message}", null, null);
+            }
+        }
+
+        var matched = selected.ToList();
+        var passed = matched.Count;
+        var summary = new JsonObject
+        {
+            ["passed"] = passed,
+            ["failed"] = 0,
+            ["skipped"] = 0,
+            ["inconclusive"] = 0,
+            ["total"] = passed,
+            ["tests"] = new JsonArray(matched
+                .Select(x => (JsonNode?)new JsonObject { ["name"] = x.Name, ["status"] = "Passed", ["message"] = "" })
+                .ToArray()),
+        };
+        var finishedAt = DateTimeOffset.UtcNow.ToString("O");
+        lock (_gate)
+        {
+            _lastTestRun = new JsonObject
+            {
+                ["runId"] = runId,
+                ["mode"] = mode,
+                ["passed"] = passed,
+                ["failed"] = 0,
+                ["skipped"] = 0,
+                ["inconclusive"] = 0,
+                ["finishedAt"] = finishedAt,
+                ["failures"] = new JsonArray(),
+            };
+        }
+
         var completedEvent = Emit("tests.completed", $"Tests completed: {mode}",
             new JsonObject { ["mode"] = mode, ["runId"] = runId, ["summary"] = summary });
         return Success("Tests started.", new JsonObject { ["runId"] = runId, ["mode"] = mode }, [startedEvent, completedEvent]);
@@ -905,6 +1201,35 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         return new JsonObject { ["level"] = level, ["message"] = message };
     }
 
+    /// <summary>console.log 이벤트 스트림을 커서/레벨/텍스트 필터로 조회한다(커넥터 동작과 동일한 봉투 반환).</summary>
+    /// <param name="args">sinceCursor(long), level(string?), contains(string?) 인자.</param>
+    /// <returns>logs 배열, 마지막 커서, 에러/경고 개수를 담은 JSON 객체.</returns>
+    private JsonNode QueryConsoleLogs(JsonObject args)
+    {
+        var sinceCursor = args["sinceCursor"]?.GetValue<long>() ?? 0;
+        var level = GetNullableString(args, "level");
+        var contains = GetNullableString(args, "contains");
+        var logs = new List<JsonNode?>();
+        long maxCursor = sinceCursor;
+        int errorCount = 0, warningCount = 0;
+        lock (_gate)
+        {
+            foreach (var e in _events)
+            {
+                if (e.Type != "console.log" || e.Cursor <= sinceCursor) continue;
+                var evLevel = e.Data?["level"]?.GetValue<string>() ?? "Log";
+                if (!string.IsNullOrWhiteSpace(level) && !evLevel.Equals(level, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!string.IsNullOrEmpty(contains) && !(e.Message?.Contains(contains, StringComparison.OrdinalIgnoreCase) ?? false)) continue;
+                if (evLevel.Equals("Error", StringComparison.OrdinalIgnoreCase) || evLevel.Equals("Exception", StringComparison.OrdinalIgnoreCase) || evLevel.Equals("Assert", StringComparison.OrdinalIgnoreCase)) errorCount++;
+                else if (evLevel.Equals("Warning", StringComparison.OrdinalIgnoreCase)) warningCount++;
+                if (e.Cursor > maxCursor) maxCursor = e.Cursor;
+                logs.Add(new JsonObject { ["cursor"] = e.Cursor, ["level"] = evLevel, ["message"] = e.Message, ["timestamp"] = e.Timestamp });
+            }
+        }
+
+        return new JsonObject { ["logs"] = new JsonArray(logs.ToArray()), ["cursor"] = maxCursor, ["errorCount"] = errorCount, ["warningCount"] = warningCount };
+    }
+
     private JsonNode ExecuteMenu(JsonObject args)
     {
         var path = GetString(args, "path", "File/Save");
@@ -942,16 +1267,77 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
     private JsonNode CreateSprite(JsonObject args)
     {
         var name = GetString(args, "name", "Sprite");
-        var color = GetNullableString(args, "color") ?? "#FFFFFFFF";
         var goArgs = new JsonObject { ["name"] = name, ["primitive"] = "Sprite" };
         if (args["position"] is JsonArray pos)
         {
             goArgs["position"] = pos.DeepClone();
         }
 
-        var result = CreateGameObject(goArgs);
-        (result as JsonObject)!["color"] = color;
-        return result;
+        var result = (JsonObject)CreateGameObject(goArgs);
+        var id = result["id"]!.GetValue<string>();
+        lock (_gate)
+        {
+            var state = _gameObjects[id];
+            state.HasSpriteRenderer = true;
+            state.Sprite = GetNullableString(args, "sprite");
+            state.SpritePath = GetNullableString(args, "sprite");
+            state.Color = GetNullableString(args, "color") ?? "#FFFFFFFF";
+            ApplySpriteState(state, args);
+            return GameObjectObject(state);
+        }
+    }
+
+    private JsonNode SetSpriteRenderer(JsonObject args)
+    {
+        var state = ResolveGameObject(args);
+        lock (_gate)
+        {
+            if (!state.HasSpriteRenderer)
+            {
+                throw new MockBridgeException("not_found", 404, $"SpriteRenderer not found on '{state.Name}'.");
+            }
+
+            var sprite = GetNullableString(args, "sprite");
+            if (sprite != null)
+            {
+                state.Sprite = sprite;
+                state.SpritePath = sprite;
+            }
+
+            ApplySpriteState(state, args);
+            Emit("component.changed", $"SpriteRenderer set: {state.Name}", new JsonObject { ["id"] = state.Id });
+            return GameObjectObject(state);
+        }
+    }
+
+    private static void ApplySpriteState(GameObjectState state, JsonObject args)
+    {
+        var color = GetNullableString(args, "color");
+        if (color != null)
+        {
+            state.Color = color;
+        }
+
+        var sortingLayer = GetNullableString(args, "sortingLayer");
+        if (sortingLayer != null)
+        {
+            state.SortingLayerName = sortingLayer;
+        }
+
+        if (args["sortingOrder"] is not null)
+        {
+            state.SortingOrder = (int)(args["sortingOrder"]!.GetValue<long>());
+        }
+
+        if (args["flipX"] is not null)
+        {
+            state.FlipX = args["flipX"]!.GetValue<bool>();
+        }
+
+        if (args["flipY"] is not null)
+        {
+            state.FlipY = args["flipY"]!.GetValue<bool>();
+        }
     }
 
     private JsonNode CreateUiElement(JsonObject args, string elementType)
@@ -1183,6 +1569,157 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         return new JsonObject { ["path"] = path, ["imported"] = true };
     }
 
+    /// <summary>asset.create-scriptableobject 를 모사한다. values 키를 그대로 applied 로 보고한다.</summary>
+    /// <param name="args">type, path, 선택적 values 인자를 담은 JSON 오브젝트.</param>
+    /// <returns>path/type/applied/skipped 를 담은 JSON 오브젝트.</returns>
+    private JsonNode CreateScriptableObjectAsset(JsonObject args)
+    {
+        if (args["type"] is null)
+        {
+            throw new MockBridgeException("missing_arg", 400, "type is required.");
+        }
+
+        if (args["path"] is null)
+        {
+            throw new MockBridgeException("missing_arg", 400, "path is required.");
+        }
+
+        var type = GetString(args, "type", "ScriptableObject");
+        var path = GetString(args, "path", "Assets/Configs/New.asset");
+        var applied = new JsonArray();
+        if (args["values"] is JsonObject values)
+        {
+            foreach (var pair in values)
+            {
+                applied.Add(JsonValue.Create(pair.Key));
+            }
+        }
+
+        Emit("asset.changed", $"ScriptableObject created: {path}", new JsonObject { ["path"] = path, ["type"] = type });
+        return new JsonObject
+        {
+            ["path"] = path,
+            ["type"] = type,
+            ["applied"] = applied,
+            ["skipped"] = new JsonArray(),
+        };
+    }
+
+    /// <summary>scriptableobject.get 을 모사한다. 결정론적 빈 properties 를 반환한다.</summary>
+    /// <param name="args">path 인자를 담은 JSON 오브젝트.</param>
+    /// <returns>path/type/properties 를 담은 JSON 오브젝트.</returns>
+    private JsonNode GetScriptableObject(JsonObject args)
+    {
+        if (args["path"] is null)
+        {
+            throw new MockBridgeException("missing_arg", 400, "path is required.");
+        }
+
+        var path = GetString(args, "path", "Assets/Configs/New.asset");
+        return new JsonObject
+        {
+            ["path"] = path,
+            ["type"] = "ScriptableObject",
+            ["properties"] = new JsonObject(),
+        };
+    }
+
+    /// <summary>scriptableobject.list 를 모사한다. 빈 목록을 반환한다.</summary>
+    /// <param name="args">선택적 filter 인자를 담은 JSON 오브젝트.</param>
+    /// <returns>assets 배열과 count 를 담은 JSON 오브젝트.</returns>
+    private JsonNode ListScriptableObjects(JsonObject args)
+    {
+        _ = GetString(args, "filter", "t:ScriptableObject");
+        return new JsonObject
+        {
+            ["assets"] = new JsonArray(),
+            ["count"] = 0,
+        };
+    }
+
+    /// <summary>asset.manage 도구의 테스트 더블로 op 값에 따라 결정론적 응답을 반환한다.</summary>
+    /// <param name="args">op 및 작업별 인자를 담은 JSON 오브젝트.</param>
+    /// <returns>커넥터와 동일한 성공/실패 메시지를 담은 <see cref="ToolCallResponse"/>.</returns>
+    private ToolCallResponse ManageAsset(JsonObject args)
+    {
+        var op = GetNullableString(args, "op");
+        if (string.IsNullOrEmpty(op))
+            return new ToolCallResponse(false, "op is required (create-folder|move|delete|rename|duplicate).", null, null);
+
+        switch (op)
+        {
+            case "create-folder":
+            {
+                var parent = GetString(args, "parent", "Assets");
+                var folderName = GetNullableString(args, "folderName");
+                if (string.IsNullOrEmpty(folderName))
+                    return new ToolCallResponse(false, "folderName is required for create-folder.", null, null);
+
+                var path = $"{parent}/{folderName}";
+                Emit("asset.changed", $"Folder created: {path}", new JsonObject { ["path"] = path });
+                return Success("Folder created.", new JsonObject { ["guid"] = "mock-guid", ["path"] = path });
+            }
+            case "move":
+            {
+                var from = GetNullableString(args, "from");
+                var to = GetNullableString(args, "to");
+                if (string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to))
+                    return new ToolCallResponse(false, "from/to required for move.", null, null);
+
+                Emit("asset.changed", $"Asset moved: {from} -> {to}", new JsonObject { ["from"] = from, ["to"] = to });
+                return Success("Asset moved.", new JsonObject { ["from"] = from, ["to"] = to });
+            }
+            case "delete":
+            {
+                if (args["paths"] is JsonArray paths)
+                {
+                    var deleted = new JsonArray();
+                    foreach (var token in paths)
+                    {
+                        var value = token?.GetValue<string>();
+                        if (!string.IsNullOrEmpty(value))
+                            deleted.Add(value);
+                    }
+
+                    if (deleted.Count == 0)
+                        return new ToolCallResponse(false, "paths must contain at least one asset path.", null, null);
+
+                    Emit("asset.changed", $"Asset(s) deleted: {deleted.Count}", new JsonObject { ["count"] = deleted.Count });
+                    return Success("Asset(s) deleted.", new JsonObject { ["deleted"] = deleted });
+                }
+
+                var path = GetNullableString(args, "path");
+                if (string.IsNullOrEmpty(path))
+                    return new ToolCallResponse(false, "path or paths is required for delete.", null, null);
+
+                Emit("asset.changed", $"Asset deleted: {path}", new JsonObject { ["path"] = path });
+                return Success("Asset(s) deleted.", new JsonObject { ["deleted"] = new JsonArray(JsonValue.Create(path)) });
+            }
+            case "rename":
+            {
+                var path = GetNullableString(args, "path");
+                var newName = GetNullableString(args, "newName");
+                if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(newName))
+                    return new ToolCallResponse(false, "path/newName required for rename.", null, null);
+
+                Emit("asset.changed", $"Asset renamed: {path} -> {newName}", new JsonObject { ["path"] = path, ["newName"] = newName });
+                return Success("Asset renamed.", new JsonObject { ["path"] = path, ["newName"] = newName });
+            }
+            case "duplicate":
+            {
+                var path = GetNullableString(args, "path");
+                if (string.IsNullOrEmpty(path))
+                    return new ToolCallResponse(false, "path is required for duplicate.", null, null);
+
+                var to = GetString(args, "to", $"{path} Copy");
+                Emit("asset.changed", $"Asset duplicated: {path} -> {to}", new JsonObject { ["from"] = path, ["to"] = to });
+                return Success("Asset duplicated.", new JsonObject { ["from"] = path, ["to"] = to });
+            }
+            default:
+                return new ToolCallResponse(false, $"Unknown op: {op}. Expected create-folder|move|delete|rename|duplicate.", null, null);
+        }
+    }
+
     private async Task<ToolCallResponse> CompileAsync(JsonObject args, CancellationToken cancellationToken)
     {
         var compilationId = Guid.NewGuid().ToString("N");
@@ -1248,7 +1785,10 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ToolDescriptor("scene.save", "scene", "Save a scene.", [], ["path"]),
             new ToolDescriptor("scene.info", "scene", "Fetch scene info.", [], ["path"]),
             new ToolDescriptor("scene.delete", "scene", "Delete a scene.", ["path"], []),
-            new ToolDescriptor("scene.unload", "scene", "Unload a scene.", ["path"], []),
+            new ToolDescriptor("scene.unload", "scene", "Unload a scene.", [], ["path"]),
+            new ToolDescriptor("scene.open-additive", "scene", "Open a scene additively.", ["path"], []),
+            new ToolDescriptor("scene.set-active", "scene", "Set the active scene.", ["path"], []),
+            new ToolDescriptor("scene.list-loaded", "scene", "List loaded scenes.", [], []),
             new ToolDescriptor("gameobject.create", "gameobject", "Create a GameObject.", ["name"], ["scenePath", "parentId", "position", "scale", "primitive"]),
             new ToolDescriptor("gameobject.get", "gameobject", "Fetch a GameObject.", [], ["id", "name"]),
             new ToolDescriptor("gameobject.delete", "gameobject", "Delete a GameObject.", [], ["id", "name"]),
@@ -1261,7 +1801,8 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ToolDescriptor("gameobject.select", "gameobject", "Select a GameObject.", [], ["id", "name"]),
             new ToolDescriptor("gameobject.find", "gameobject", "Query GameObjects.", [], ["tag", "layer", "component", "nameContains", "path", "activeOnly", "includeInactive", "limit"]),
             new ToolDescriptor("gameobject.set-properties", "gameobject", "Set GameObject-level state.", [], ["id", "name", "active", "tag", "layer", "static", "newName", "recursiveLayer"]),
-            new ToolDescriptor("sprite.create", "sprite", "Create a SpriteRenderer.", ["name"], ["position", "color"]),
+            new ToolDescriptor("sprite.create", "sprite", "Create a SpriteRenderer.", ["name"], ["sprite", "position", "color", "sortingLayer", "sortingOrder", "flipX", "flipY"]),
+            new ToolDescriptor("sprite.set", "sprite", "Modify a SpriteRenderer.", [], ["id", "name", "sprite", "color", "sortingLayer", "sortingOrder", "flipX", "flipY"]),
             new ToolDescriptor("component.update", "component", "Patch a component.", ["type"], ["id", "name", "values"]),
             new ToolDescriptor("component.list", "component", "List components on a GameObject.", [], ["id", "name", "includeValues"]),
             new ToolDescriptor("component.get", "component", "Read a component's serialized properties.", ["type"], ["id", "name"]),
@@ -1274,13 +1815,18 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ToolDescriptor("asset.list", "asset", "List assets.", [], ["filter"]),
             new ToolDescriptor("asset.add-to-scene", "asset", "Instantiate an asset in the scene.", ["assetPath"], ["scenePath", "name"]),
             new ToolDescriptor("asset.import-texture", "asset", "Import a texture.", ["path"], []),
+            new ToolDescriptor("asset.manage", "asset", "Manage assets (folder/move/delete/rename/duplicate).", ["op"], ["parent", "folderName", "from", "to", "path", "paths", "newName"]),
+            new ToolDescriptor("asset.create-scriptableobject", "asset", "Create a ScriptableObject asset.", ["type", "path"], ["values"]),
+            new ToolDescriptor("scriptableobject.get", "scriptableobject", "Read a ScriptableObject's serialized properties.", ["path"], []),
+            new ToolDescriptor("scriptableobject.list", "scriptableobject", "List ScriptableObject assets.", [], ["filter"]),
             new ToolDescriptor("package.list", "package", "List packages.", [], []),
             new ToolDescriptor("package.add", "package", "Install a package.", ["name"], ["version"]),
             new ToolDescriptor("tests.list", "tests", "List tests.", [], ["mode"]),
-            new ToolDescriptor("tests.run", "tests", "Run tests.", [], ["mode", "assembly", "name"]),
+            new ToolDescriptor("tests.run", "tests", "Run tests.", [], ["mode", "assembly", "name", "category", "regex"]),
             new ToolDescriptor("console.get", "console", "Fetch console logs.", [], ["level"]),
             new ToolDescriptor("console.clear", "console", "Clear console logs.", [], []),
             new ToolDescriptor("console.send", "console", "Emit a console log.", ["message"], ["level"]),
+            new ToolDescriptor("console.logs", "console", "Query console logs from a cursor.", [], ["sinceCursor", "level", "contains"]),
             new ToolDescriptor("menu.execute", "menu", "Execute a menu item.", ["path"], []),
             new ToolDescriptor("ui.canvas.create", "ui", "Create a Canvas.", ["name"], []),
             new ToolDescriptor("ui.button.create", "ui", "Create a Button.", ["canvasName", "name"], ["text", "anchoredPosition", "size"]),
@@ -1316,6 +1862,10 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ToolDescriptor("editor.pause", "editor", "Pause or resume.", [], ["enabled"]),
             new ToolDescriptor("editor.refresh", "editor", "Refresh editor.", [], []),
             new ToolDescriptor("editor.gameview.resize", "editor", "Resize Game view.", ["width", "height"], []),
+            new ToolDescriptor("prefab.create", "prefab", "Save a GameObject as a prefab.", ["path"], ["id", "name"]),
+            new ToolDescriptor("prefab.instantiate", "prefab", "Instantiate a prefab asset.", ["path"], ["name", "position", "rotation", "scale"]),
+            new ToolDescriptor("prefab.apply", "prefab", "Apply prefab overrides.", [], ["id", "name"]),
+            new ToolDescriptor("prefab.unpack", "prefab", "Unpack a prefab instance.", [], ["id", "name", "completely"]),
         ];
     }
 
@@ -1329,8 +1879,10 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ResourceDescriptor("ui/hierarchy", "UI element hierarchy."),
             new ResourceDescriptor("console/logs", "Console logs."),
             new ResourceDescriptor("tests/catalog", "Known tests."),
+            new ResourceDescriptor("tests/last-run", "Last completed test run summary."),
             new ResourceDescriptor("packages/list", "Installed packages."),
             new ResourceDescriptor("project/info", "Project, build target, render pipeline and scenes-in-build info."),
+            new ResourceDescriptor("addressables/list", "Addressables groups and entries (reflection; available:false when package absent)."),
         ];
     }
 
@@ -1344,8 +1896,10 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             "ui/hierarchy" => new ResourceResponse(name, BuildUiHierarchy()),
             "console/logs" => new ResourceResponse(name, GetLogs(new JsonObject())),
             "tests/catalog" => new ResourceResponse(name, ListTests(new JsonObject())),
+            "tests/last-run" => new ResourceResponse(name, _lastTestRun is null ? null : JsonHelpers.DeepClone(_lastTestRun)),
             "packages/list" => new ResourceResponse(name, ListPackages()),
             "project/info" => new ResourceResponse(name, BuildProjectInfo()),
+            "addressables/list" => new ResourceResponse(name, BuildAddressablesList()),
             _ => new ResourceResponse(name, null),
         };
     }
@@ -1399,12 +1953,14 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             ["name"] = scene.Name,
             ["isLoaded"] = scene.IsLoaded,
             ["isDirty"] = scene.IsDirty,
+            ["buildIndex"] = scene.BuildIndex,
+            ["isActive"] = string.Equals(_activeScenePath, scene.Path, StringComparison.OrdinalIgnoreCase),
         };
     }
 
     private JsonObject GameObjectObject(GameObjectState state)
     {
-        return new JsonObject
+        var obj = new JsonObject
         {
             ["id"] = state.Id,
             ["name"] = state.Name,
@@ -1421,6 +1977,20 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             ["scale"] = new JsonArray(state.Scale.Select(static x => (JsonNode?)JsonValue.Create(x)).ToArray()),
             ["components"] = new JsonObject(state.Components.Select(x => new KeyValuePair<string, JsonNode?>(x.Key, JsonHelpers.DeepClone(x.Value))).ToArray()),
         };
+
+        if (state.HasSpriteRenderer)
+        {
+            obj["sprite"] = state.Sprite ?? string.Empty;
+            obj["spritePath"] = state.SpritePath ?? string.Empty;
+            obj["color"] = state.Color;
+            obj["sortingLayerName"] = state.SortingLayerName;
+            obj["sortingOrder"] = state.SortingOrder;
+            obj["flipX"] = state.FlipX;
+            obj["flipY"] = state.FlipY;
+            obj["rendererEnabled"] = true;
+        }
+
+        return obj;
     }
 
     private JsonObject MaterialObject(MaterialState material)
@@ -1553,9 +2123,9 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         _packages.Add(new PackageState("com.unity.textmeshpro", "3.0.8"));
         _tests.AddRange(
         [
-            new TestCaseState("EditMode.PlayerCanSpawn", "EditMode"),
-            new TestCaseState("EditMode.MaterialCanBeAssigned", "EditMode"),
-            new TestCaseState("PlayMode.PlayerSurvivesReload", "PlayMode"),
+            new TestCaseState("EditMode.PlayerCanSpawn", "EditMode", "Smoke"),
+            new TestCaseState("EditMode.MaterialCanBeAssigned", "EditMode", "Rendering"),
+            new TestCaseState("PlayMode.PlayerSurvivesReload", "PlayMode", "Smoke"),
         ]);
     }
 
@@ -1579,7 +2149,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         lock (_gate)
         {
             return _scenes.FirstOrDefault(x => x.Path.Equals(path, StringComparison.OrdinalIgnoreCase))
-                ?? throw new InvalidOperationException($"Scene '{path}' was not found.");
+                ?? throw new MockBridgeException("not_found", 404, $"Scene '{path}' was not found.");
         }
     }
 
@@ -1589,7 +2159,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         {
             return _materials.TryGetValue(path, out var material)
                 ? material
-                : throw new InvalidOperationException($"Material '{path}' was not found.");
+                : throw new MockBridgeException("not_found", 404, $"Material '{path}' was not found.");
         }
     }
 
@@ -1606,7 +2176,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             }
 
             var byName = _gameObjects.Values.FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
-            return byName ?? throw new InvalidOperationException($"GameObject '{id ?? name}' was not found.");
+            return byName ?? throw new MockBridgeException("not_found", 404, $"GameObject '{id ?? name}' was not found.");
         }
     }
 
@@ -1649,6 +2219,8 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         public bool IsLoaded { get; set; } = isLoaded;
 
         public bool IsDirty { get; set; } = isDirty;
+
+        public int BuildIndex { get; set; } = -1;
     }
 
     private sealed class GameObjectState(string id, string name, string? parentId, string scenePath)
@@ -1677,6 +2249,22 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
 
         public int Layer { get; set; }
 
+        public bool HasSpriteRenderer { get; set; }
+
+        public string? Sprite { get; set; }
+
+        public string? SpritePath { get; set; }
+
+        public string Color { get; set; } = "#FFFFFFFF";
+
+        public string SortingLayerName { get; set; } = "Default";
+
+        public int SortingOrder { get; set; }
+
+        public bool FlipX { get; set; }
+
+        public bool FlipY { get; set; }
+
         public Dictionary<string, JsonObject> Components { get; } = new(StringComparer.OrdinalIgnoreCase)
         {
             ["Transform"] = new JsonObject(),
@@ -1694,6 +2282,14 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
                 Active = Active,
                 Tag = Tag,
                 Layer = Layer,
+                HasSpriteRenderer = HasSpriteRenderer,
+                Sprite = Sprite,
+                SpritePath = SpritePath,
+                Color = Color,
+                SortingLayerName = SortingLayerName,
+                SortingOrder = SortingOrder,
+                FlipX = FlipX,
+                FlipY = FlipY,
             };
 
             foreach (var pair in Components)
@@ -1720,7 +2316,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
 
     private sealed record LogEntry(DateTimeOffset Timestamp, string Level, string Message);
 
-    private sealed record TestCaseState(string Name, string Mode);
+    private sealed record TestCaseState(string Name, string Mode, string Category = "");
 
     private sealed class UiElementState(string name, string elementType)
     {

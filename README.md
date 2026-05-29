@@ -77,6 +77,18 @@ dotnet run --project src/UnityCli -- workflow run samples/workflows/smoke-test.j
 - `--timeout-ms=<ms>`: 요청 타임아웃 (기본 `10000`)
 - `--field=<jsonpath>`: 전체 JSON 대신 점/인덱스 경로로 해석한 스칼라만 출력 (`result.id`, `data.logs[0].data.level`, `data.renderPipeline`). 경로 미해석 시 종료코드 2. 예: `id=$(unity-cli gameobject create name=Hero --field=result.id)`
 - `--quiet`: 성공 JSON 출력 억제 (종료코드로만 성공/실패 판단)
+- `--strict`: 알 수 없는 도구(`unknown_tool`) 실패를 사용성 오류로 간주하여 종료코드 2로 격상 (기본은 1)
+
+### 종료 코드와 오류 봉투
+
+도구/리소스 실패 봉투는 `{ success, message, code, result, events }` 형태이며, 실패 시 `code`에 안정적 오류 코드(`not_found`, `missing_arg`, `bad_arg`, `unknown_tool`, `internal_error`)가 채워집니다(성공 시 `code`는 `null`). HTTP 상태는 의미를 가집니다: `not_found`->404, `missing_arg`/`bad_arg`->400, `internal_error`->500, `unknown_tool`은 HTTP 200(`success=false`)으로 유지됩니다.
+
+| 종료 코드 | 의미 |
+| --- | --- |
+| 0 | 성공 |
+| 1 | 도구 실패 또는 assert 실패 (도메인 실패, `not_found` 등) |
+| 2 | 인자/경로 오류 (`missing_arg`/`bad_arg`, `--field` 미해석, 명령 그룹/액션 누락, `--strict`의 `unknown_tool`) |
+| 3 | 브리지 도달 불가 (전송 오류/타임아웃) |
 
 ## Unity에 붙이기
 

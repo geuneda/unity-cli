@@ -31,7 +31,28 @@ namespace UnityCliBridge
 public static partial class UnityCliBridgeServer
 {
     private static readonly object Gate = new();
+
+    /// <summary>
+    /// 모든 JSON 직렬화에 사용하는 공유 설정. 들여쓰기 유지, 문자열 이스케이프는 기본값으로 고정(부호 보존),
+    /// 타임스탬프는 UTC 밀리초 + 'Z' 접미사(ISO 8601)로 결정론적으로 출력한다.
+    /// </summary>
+    private static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
+    {
+        Formatting = Formatting.Indented,
+        StringEscapeHandling = StringEscapeHandling.Default,
+        DateFormatHandling = DateFormatHandling.IsoDateFormat,
+        DateTimeZoneHandling = DateTimeZoneHandling.Utc,
+        DateFormatString = "yyyy-MM-ddTHH:mm:ss.fffZ",
+    };
+
     private static readonly List<BridgeEvent> Events = new();
+
+    /// <summary>
+    /// 마지막으로 완료된 테스트 실행 결과 스냅샷. tests/last-run 리소스가 노출한다.
+    /// 메모리에만 보관하므로 도메인 리로드 시 사라지며, 복구된 PlayMode 실행이 완료될 때 다시 채워진다.
+    /// </summary>
+    private static JObject? _lastTestRun;
+
     private static readonly ConcurrentQueue<Action> MainThreadActions = new();
     private static readonly HttpListener Listener = new();
     private static CancellationTokenSource? _cts;
@@ -39,6 +60,12 @@ public static partial class UnityCliBridgeServer
     private static long _cursor;
     private static double _nextStartAttemptAt = -1d;
     private static readonly string SessionId = Guid.NewGuid().ToString("N");
+
+    /// <summary>현재 에디터 인스턴스가 instances.json 에 등록한 키(project:port). Stop 시 alive=false 표시에 사용.</summary>
+    private static string? _registeredInstanceKey;
+
+    /// <summary>등록 파일 경로 헬퍼와 alive 토글이 공유하는 락 오브젝트.</summary>
+    private static readonly object InstancesFileGate = new object();
 
     // ToolNames, ToolCatalog, ResourceCatalog and EventTypes are the single source of truth.
     // They live in UnityCliBridge.Catalog.cs. Adding a tool there + a switch arm in ExecuteToolAsync
@@ -54,6 +81,28 @@ public static partial class UnityCliBridgeServer
         Start();
     }
 
+    /// <summary>
+    /// 브릿지 리슨 포트를 결정한다. 우선순위: UNITY_CLI_PORT 환경변수 > EditorPrefs("UnityCliBridge.Port") > 기본값 52737.
+    /// 유효 범위(1-65535)를 벗어나거나 파싱 불가하면 다음 소스로 폴백한다.
+    /// </summary>
+    /// <returns>해석된 리슨 포트.</returns>
+    private static int ResolvePort()
+    {
+        var envPort = Environment.GetEnvironmentVariable("UNITY_CLI_PORT");
+        if (int.TryParse(envPort, out var fromEnv) && fromEnv > 0 && fromEnv <= 65535)
+        {
+            return fromEnv;
+        }
+
+        var prefsPort = EditorPrefs.GetInt("UnityCliBridge.Port", 0);
+        if (prefsPort > 0 && prefsPort <= 65535)
+        {
+            return prefsPort;
+        }
+
+        return 52737;
+    }
+
     private static void Start()
     {
         if (_serverTask != null || Listener.IsListening)
@@ -62,7 +111,7 @@ public static partial class UnityCliBridgeServer
         }
 
         var host = "127.0.0.1";
-        var port = 52737;
+        var port = ResolvePort();
         var prefix = $"http://{host}:{port}/";
         try
         {
@@ -93,6 +142,7 @@ public static partial class UnityCliBridgeServer
 
     private static void Stop()
     {
+        MarkRegisteredInstanceDead();
         try
         {
             if (_cts != null)
@@ -229,10 +279,15 @@ public static partial class UnityCliBridgeServer
             context.Response.StatusCode = 404;
             await WriteTextAsync(context, "not found");
         }
+        catch (BridgeException bridgeException)
+        {
+            context.Response.StatusCode = bridgeException.Status;
+            await WriteJsonAsync(context, new { success = false, message = bridgeException.Message, code = bridgeException.Code, result = (object?)null, events = Array.Empty<object>() });
+        }
         catch (Exception exception)
         {
             context.Response.StatusCode = 500;
-            await WriteJsonAsync(context, new { success = false, message = exception.Message });
+            await WriteJsonAsync(context, new { success = false, message = exception.Message, code = ErrorCodes.Internal, result = (object?)null, events = Array.Empty<object>() });
         }
     }
 
@@ -270,17 +325,70 @@ public static partial class UnityCliBridgeServer
             }),
             "scene.delete" => await OnMainThreadAsync(() =>
             {
-                var path = arguments.Value<string>("path") ?? throw new InvalidOperationException("path is required.");
+                var path = arguments.Value<string>("path") ?? throw MissingArg("path is required.");
+                if (AssetDatabase.LoadAssetAtPath<SceneAsset>(path) == null)
+                {
+                    throw NotFound($"Scene asset not found: {path}");
+                }
+
                 AssetDatabase.DeleteAsset(path);
                 Emit("scene.changed", $"Scene deleted: {path}", new JObject { ["path"] = path });
                 return Success(new JObject { ["deleted"] = path }, "Scene deleted.");
             }),
             "scene.unload" => await OnMainThreadAsync(() =>
             {
-                var scene = SceneManager.GetActiveScene();
+                var path = arguments.Value<string>("path");
+                var scene = string.IsNullOrEmpty(path) ? SceneManager.GetActiveScene() : SceneManager.GetSceneByPath(path);
+                if (!string.IsNullOrEmpty(path) && !scene.IsValid())
+                {
+                    throw NotFound($"Loaded scene not found: {path}");
+                }
+
+                var closedPath = scene.path;
                 EditorSceneManager.CloseScene(scene, true);
-                Emit("scene.changed", $"Scene unloaded: {scene.path}", new JObject { ["path"] = scene.path });
-                return Success(new JObject { ["path"] = scene.path }, "Scene unloaded.");
+                Emit("scene.changed", $"Scene unloaded: {closedPath}", new JObject { ["path"] = closedPath });
+                return Success(new JObject { ["path"] = closedPath }, "Scene unloaded.");
+            }),
+            "scene.open-additive" => await OnMainThreadAsync(() =>
+            {
+                var path = arguments.Value<string>("path") ?? throw MissingArg("path is required.");
+                if (AssetDatabase.LoadAssetAtPath<SceneAsset>(path) == null)
+                {
+                    throw NotFound($"Scene asset not found: {path}");
+                }
+
+                var scene = EditorSceneManager.OpenScene(path, OpenSceneMode.Additive);
+                Emit("scene.loaded", $"Scene opened additively: {path}", new JObject { ["path"] = path });
+                return Success(SceneObject(scene, path), "Scene opened additively.");
+            }),
+            "scene.set-active" => await OnMainThreadAsync(() =>
+            {
+                var path = arguments.Value<string>("path") ?? throw MissingArg("path is required.");
+                var scene = SceneManager.GetSceneByPath(path);
+                if (!scene.IsValid() || !scene.isLoaded)
+                {
+                    throw NotFound($"Loaded scene not found: {path}");
+                }
+
+                SceneManager.SetActiveScene(scene);
+                Emit("scene.changed", $"Active scene set: {path}", new JObject { ["path"] = path });
+                return Success(SceneObject(scene, path), "Active scene set.");
+            }),
+            "scene.list-loaded" => await OnMainThreadAsync(() =>
+            {
+                var scenes = new JArray();
+                for (var i = 0; i < SceneManager.sceneCount; i++)
+                {
+                    var loaded = SceneManager.GetSceneAt(i);
+                    scenes.Add(SceneObject(loaded, loaded.path));
+                }
+
+                return Success(new JObject
+                {
+                    ["scenes"] = scenes,
+                    ["count"] = SceneManager.sceneCount,
+                    ["activeScenePath"] = SceneManager.GetActiveScene().path,
+                }, "Loaded scenes listed.");
             }),
             "gameobject.create" => await OnMainThreadAsync(() =>
             {
@@ -372,33 +480,8 @@ public static partial class UnityCliBridgeServer
                 Emit("hierarchy.changed", $"Sprite created: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name });
                 return Success(GameObjectObject(gameObject), "Sprite created.");
             }),
-            "component.update" => await OnMainThreadAsync(() =>
-            {
-                var gameObject = FindGameObject(arguments);
-                var typeName = arguments.Value<string>("type") ?? "Transform";
-                var componentType = Type.GetType(typeName) ?? AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType(typeName)).FirstOrDefault(t => t != null);
-                if (componentType == null)
-                {
-                    throw new InvalidOperationException($"Component type not found: {typeName}");
-                }
-
-                var component = gameObject.GetComponent(componentType) ?? gameObject.AddComponent(componentType);
-                var values = arguments["values"] as JObject;
-                if (values != null)
-                {
-                    foreach (var pair in values)
-                    {
-                        var property = componentType.GetProperty(pair.Key);
-                        if (property != null && property.CanWrite)
-                        {
-                            property.SetValue(component, pair.Value?.ToObject(property.PropertyType));
-                        }
-                    }
-                }
-
-                Emit("component.changed", $"Component updated: {gameObject.name}/{typeName}", null);
-                return Success(GameObjectObject(gameObject), "Component updated.");
-            }),
+            "sprite.set" => await OnMainThreadAsync(() => SetSpriteRenderer(arguments)),
+            "component.update" => await OnMainThreadAsync(() => UpdateComponentTool(arguments)),
             "component.list" => await OnMainThreadAsync(() => ListComponents(arguments)),
             "component.get" => await OnMainThreadAsync(() => GetComponentProperties(arguments)),
             "component.add" => await OnMainThreadAsync(() => AddComponentTool(arguments)),
@@ -565,6 +648,10 @@ public static partial class UnityCliBridgeServer
                     ["reimported"] = changed,
                 }, changed ? "Texture import settings updated and reimported." : "Texture already has correct settings.");
             }),
+            "asset.manage" => await OnMainThreadAsync(() => ManageAsset(arguments)),
+            "asset.create-scriptableobject" => await OnMainThreadAsync(() => CreateScriptableObjectAsset(arguments)),
+            "scriptableobject.get" => await OnMainThreadAsync(() => GetScriptableObjectProperties(arguments)),
+            "scriptableobject.list" => await OnMainThreadAsync(() => ListScriptableObjects(arguments)),
             "package.list" => await OnMainThreadAsync(() =>
             {
                 return Success(new JObject
@@ -602,6 +689,7 @@ public static partial class UnityCliBridgeServer
                 Emit("console.log", message, new JObject { ["level"] = arguments.Value<string>("level") ?? "info" });
                 return Success(new JObject { ["message"] = message }, "Log emitted.");
             }),
+            "console.logs" => QueryConsoleLogs(arguments),
             "ui.canvas.create" => await OnMainThreadAsync(() =>
             {
                 var canvas = EnsureCanvas(arguments.Value<string>("name") ?? "Canvas", arguments);
@@ -807,7 +895,11 @@ public static partial class UnityCliBridgeServer
                 return Success(EditorState(), "Editor refreshed.");
             }),
             "editor.compile" => await OnMainThreadAsync(() => RequestScriptCompilation()),
-            _ => Failure($"Unsupported tool '{toolName}'."),
+            "prefab.create" => await OnMainThreadAsync(() => CreatePrefab(arguments)),
+            "prefab.instantiate" => await OnMainThreadAsync(() => InstantiatePrefab(arguments)),
+            "prefab.apply" => await OnMainThreadAsync(() => ApplyPrefab(arguments)),
+            "prefab.unpack" => await OnMainThreadAsync(() => UnpackPrefab(arguments)),
+            _ => Failure($"Unsupported tool '{toolName}'.", ErrorCodes.UnknownTool),
         };
     }
 
@@ -827,10 +919,18 @@ public static partial class UnityCliBridgeServer
                 return new { name = resourceName, data = new { logs = Events.Where(e => e.Type == "console.log").ToArray() } };
             case "tests/catalog":
                 return new { name = resourceName, data = new { tests = await GetTestsCatalogAsync("All") } };
+            case "tests/last-run":
+            {
+                JObject? snapshot;
+                lock (Gate) { snapshot = _lastTestRun; }
+                return new { name = resourceName, data = (object?)snapshot };
+            }
             case "packages/list":
                 return await OnMainThreadAsync(() => new { name = resourceName, data = new { packages = GetInstalledPackages() } });
             case "project/info":
                 return await OnMainThreadAsync(() => new { name = resourceName, data = ProjectInfo() });
+            case "addressables/list":
+                return await OnMainThreadAsync(() => new { name = resourceName, data = AddressablesList() });
             default:
                 return new { name = resourceName, data = (object?)null };
         }
@@ -881,6 +981,71 @@ public static partial class UnityCliBridgeServer
         };
     }
 
+    /// <summary>
+    /// Addressables 패키지의 그룹/엔트리 목록을 리플렉션으로 수집한다.
+    /// 패키지가 없거나 설정 에셋이 없으면 { available = false } 를 반환한다.
+    /// </summary>
+    /// <returns>그룹/엔트리 트리 또는 { available = false } 센티넬 JObject.</returns>
+    private static JObject AddressablesList()
+    {
+        var defaultType = Type.GetType("UnityEditor.AddressableAssets.AddressableAssetSettingsDefaultObject, Unity.Addressables.Editor");
+        if (defaultType == null)
+        {
+            return new JObject { ["available"] = false };
+        }
+
+        var settingsProp = defaultType.GetProperty("Settings", BindingFlags.Public | BindingFlags.Static);
+        var settings = settingsProp?.GetValue(null);
+        if (settings == null)
+        {
+            return new JObject { ["available"] = false };
+        }
+
+        var groupsProp = settings.GetType().GetProperty("groups", BindingFlags.Public | BindingFlags.Instance);
+        if (groupsProp?.GetValue(settings) is not System.Collections.IEnumerable groups)
+        {
+            return new JObject { ["available"] = false };
+        }
+
+        var groupsArray = new JArray();
+        foreach (var group in groups)
+        {
+            if (group == null) continue;
+            var groupType = group.GetType();
+            var groupName = groupType.GetProperty("Name", BindingFlags.Public | BindingFlags.Instance)?.GetValue(group) as string ?? string.Empty;
+
+            var entriesArray = new JArray();
+            if (groupType.GetProperty("entries", BindingFlags.Public | BindingFlags.Instance)?.GetValue(group) is System.Collections.IEnumerable entries)
+            {
+                foreach (var entry in entries)
+                {
+                    if (entry == null) continue;
+                    var entryType = entry.GetType();
+                    var labelsArray = new JArray();
+                    if (entryType.GetProperty("labels", BindingFlags.Public | BindingFlags.Instance)?.GetValue(entry) is System.Collections.IEnumerable labels)
+                    {
+                        foreach (var label in labels)
+                        {
+                            if (label != null) labelsArray.Add(label.ToString());
+                        }
+                    }
+
+                    entriesArray.Add(new JObject
+                    {
+                        ["address"] = entryType.GetProperty("address", BindingFlags.Public | BindingFlags.Instance)?.GetValue(entry) as string ?? string.Empty,
+                        ["guid"] = entryType.GetProperty("guid", BindingFlags.Public | BindingFlags.Instance)?.GetValue(entry) as string ?? string.Empty,
+                        ["assetPath"] = entryType.GetProperty("AssetPath", BindingFlags.Public | BindingFlags.Instance)?.GetValue(entry) as string ?? string.Empty,
+                        ["labels"] = labelsArray,
+                    });
+                }
+            }
+
+            groupsArray.Add(new JObject { ["name"] = groupName, ["entries"] = entriesArray });
+        }
+
+        return new JObject { ["groups"] = groupsArray };
+    }
+
     private static JObject RequestPlayMode(bool enabled)
     {
         EditorApplication.isPlaying = enabled;
@@ -901,6 +1066,8 @@ public static partial class UnityCliBridgeServer
             ["name"] = scene.name,
             ["isLoaded"] = scene.isLoaded,
             ["isDirty"] = scene.isDirty,
+            ["buildIndex"] = scene.buildIndex,
+            ["isActive"] = scene.IsValid() && SceneManager.GetActiveScene() == scene,
         };
     }
 
@@ -1076,6 +1243,8 @@ public static partial class UnityCliBridgeServer
     {
         var requestedMode = ParseRequestedTestMode(arguments.Value<string>("mode"));
         var requestedNames = ParseRequestedTestNames(arguments);
+        var requestedCategories = ParseRequestedCategories(arguments);
+        var regex = arguments.Value<string>("regex");
         var runId = Guid.NewGuid().ToString("N");
 
         if (requestedMode == TestMode.EditMode)
@@ -1101,6 +1270,35 @@ public static partial class UnityCliBridgeServer
                     return Failure("No matching tests were found.");
                 }
             }
+
+            if (!string.IsNullOrWhiteSpace(regex))
+            {
+                System.Text.RegularExpressions.Regex compiledRegex;
+                try
+                {
+                    compiledRegex = new System.Text.RegularExpressions.Regex(regex);
+                }
+                catch (Exception ex)
+                {
+                    return Failure($"Invalid regex: {ex.Message}");
+                }
+
+                var selectedNames = new HashSet<string>(requestedNames ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+                requestedNames = availableTests
+                    .Where(test => selectedNames.Count == 0 || selectedNames.Contains(test.FullName))
+                    .Where(test => compiledRegex.IsMatch(test.FullName))
+                    .Select(test => test.FullName)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                if (requestedNames.Length == 0)
+                {
+                    return Failure("No tests matched the regex filter.");
+                }
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(regex))
+        {
+            return Failure("regex filter is only supported for EditMode tests.");
         }
 
         var usesPersistentPlayModeTracking = requestedMode == TestMode.PlayMode;
@@ -1128,7 +1326,7 @@ public static partial class UnityCliBridgeServer
                 TestRunnerApi.RegisterTestCallback(callbacks);
             }
 
-            api.Execute(new ExecutionSettings(BuildTestFilter(requestedMode, requestedNames)));
+            api.Execute(new ExecutionSettings(BuildTestFilter(requestedMode, requestedNames, requestedCategories)));
             return true;
         });
 
@@ -1222,12 +1420,24 @@ public static partial class UnityCliBridgeServer
         return test.Tests.Sum(CountLeafTests);
     }
 
-    private static Filter BuildTestFilter(TestMode mode, string[]? testNames)
+    /// <summary>
+    /// 실행할 테스트를 좁히는 <see cref="Filter"/> 를 구성한다. 이름/카테고리 필터가 있으면 적용한다.
+    /// </summary>
+    /// <param name="mode">실행 모드(EditMode/PlayMode).</param>
+    /// <param name="testNames">실행할 전체 테스트 이름 목록(없으면 전체).</param>
+    /// <param name="categoryNames">NUnit 카테고리 필터(없으면 전체).</param>
+    /// <returns>구성된 테스트 필터.</returns>
+    private static Filter BuildTestFilter(TestMode mode, string[]? testNames, string[]? categoryNames)
     {
         var filter = new Filter { testMode = mode };
         if (testNames != null && testNames.Length > 0)
         {
             filter.testNames = testNames;
+        }
+
+        if (categoryNames != null && categoryNames.Length > 0)
+        {
+            filter.categoryNames = categoryNames;
         }
 
         return filter;
@@ -1320,6 +1530,32 @@ public static partial class UnityCliBridgeServer
         };
     }
 
+    /// <summary>
+    /// 요약의 tests 배열에서 실패 항목만 추려 {fullName,message} 배열로 변환한다.
+    /// </summary>
+    /// <param name="summary">passed/failed/... 와 tests 배열을 포함하는 테스트 실행 요약.</param>
+    /// <returns>실패 테스트의 fullName/message 만 담은 JSON 배열.</returns>
+    private static JArray BuildTestFailures(JObject summary)
+    {
+        var failures = new JArray();
+        if (summary["tests"] is JArray tests)
+        {
+            foreach (var test in tests.OfType<JObject>())
+            {
+                if (string.Equals(test.Value<string>("status"), "Failed", StringComparison.OrdinalIgnoreCase))
+                {
+                    failures.Add(new JObject
+                    {
+                        ["fullName"] = test.Value<string>("name") ?? string.Empty,
+                        ["message"] = test.Value<string>("message") ?? string.Empty,
+                    });
+                }
+            }
+        }
+
+        return failures;
+    }
+
     internal static void EmitTestRunStarted(string runId, TestMode mode, string[] requestedNames, int count)
     {
         Emit("tests.started", $"Tests started: {TestModeName(mode)}", new JObject
@@ -1333,6 +1569,19 @@ public static partial class UnityCliBridgeServer
 
     internal static void EmitTestRunCompleted(string runId, TestMode mode, JObject summary)
     {
+        var snapshot = new JObject
+        {
+            ["runId"] = runId,
+            ["mode"] = TestModeName(mode),
+            ["passed"] = summary.Value<int>("passed"),
+            ["failed"] = summary.Value<int>("failed"),
+            ["skipped"] = summary.Value<int>("skipped"),
+            ["inconclusive"] = summary.Value<int>("inconclusive"),
+            ["finishedAt"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["failures"] = BuildTestFailures(summary),
+        };
+        lock (Gate) { _lastTestRun = snapshot; }
+
         Emit("tests.completed", $"Tests completed: {TestModeName(mode)}", new JObject
         {
             ["runId"] = runId,
@@ -1421,6 +1670,71 @@ public static partial class UnityCliBridgeServer
             .ToArray();
     }
 
+    /// <summary>
+    /// tests.run 의 category 인자(쉼표 구분)를 NUnit 카테고리 배열로 파싱한다.
+    /// </summary>
+    /// <param name="arguments">category(string?) 인자를 포함하는 도구 인자.</param>
+    /// <returns>공백을 제거한 카테고리 배열. 값이 없으면 null.</returns>
+    private static string[]? ParseRequestedCategories(JObject arguments)
+    {
+        var category = arguments.Value<string>("category");
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            return null;
+        }
+
+        var categories = category
+            .Split(',')
+            .Select(value => value.Trim())
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .ToArray();
+        return categories.Length == 0 ? null : categories;
+    }
+
+    /// <summary>
+    /// 콘솔 로그 이벤트(console.log)를 커서/레벨/텍스트 필터로 조회한다.
+    /// </summary>
+    /// <param name="arguments">sinceCursor(long), level(string?), contains(string?) 인자.</param>
+    /// <returns>logs 배열, 마지막 커서, 에러/경고 개수를 담은 성공 응답.</returns>
+    private static object QueryConsoleLogs(JObject arguments)
+    {
+        var sinceCursor = arguments.Value<long?>("sinceCursor") ?? 0;
+        var levelFilter = arguments.Value<string>("level");
+        var contains = arguments.Value<string>("contains");
+        var logs = new JArray();
+        long maxCursor = sinceCursor;
+        int errorCount = 0;
+        int warningCount = 0;
+        lock (Gate)
+        {
+            foreach (var e in Events)
+            {
+                if (e.Type != "console.log" || e.Cursor <= sinceCursor) { continue; }
+                var level = e.Data?["level"]?.Value<string>() ?? "Log";
+                if (!string.IsNullOrEmpty(levelFilter) && !string.Equals(level, levelFilter, StringComparison.OrdinalIgnoreCase)) { continue; }
+                var stack = e.Data?["stackTrace"]?.Value<string>() ?? string.Empty;
+                if (!string.IsNullOrEmpty(contains)
+                    && (e.Message?.IndexOf(contains, StringComparison.OrdinalIgnoreCase) ?? -1) < 0
+                    && stack.IndexOf(contains, StringComparison.OrdinalIgnoreCase) < 0) { continue; }
+                if (string.Equals(level, "Error", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(level, "Exception", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(level, "Assert", StringComparison.OrdinalIgnoreCase)) { errorCount++; }
+                else if (string.Equals(level, "Warning", StringComparison.OrdinalIgnoreCase)) { warningCount++; }
+                if (e.Cursor > maxCursor) { maxCursor = e.Cursor; }
+                logs.Add(new JObject
+                {
+                    ["cursor"] = e.Cursor,
+                    ["level"] = level,
+                    ["message"] = e.Message,
+                    ["stackTrace"] = stack,
+                    ["timestamp"] = e.Timestamp,
+                });
+            }
+        }
+
+        return Success(new JObject { ["logs"] = logs, ["cursor"] = maxCursor, ["errorCount"] = errorCount, ["warningCount"] = warningCount }, $"{logs.Count} console log(s).");
+    }
+
     private static void ClearConsoleBuffer()
     {
         lock (Gate)
@@ -1438,11 +1752,11 @@ public static partial class UnityCliBridgeServer
         var id = arguments["id"]?.Value<int?>();
         if (id.HasValue)
         {
-            return EditorUtility.InstanceIDToObject(id.Value) as GameObject ?? throw new InvalidOperationException($"GameObject with instance ID {id.Value} was not found.");
+            return EditorUtility.InstanceIDToObject(id.Value) as GameObject ?? throw NotFound($"GameObject with instance ID {id.Value} was not found.");
         }
 
-        var name = arguments.Value<string>("name") ?? throw new InvalidOperationException("Either id or name is required.");
-        return GameObject.Find(name) ?? throw new InvalidOperationException($"GameObject '{name}' was not found.");
+        var name = arguments.Value<string>("name") ?? throw MissingArg("Either id or name is required.");
+        return GameObject.Find(name) ?? throw NotFound($"GameObject '{name}' was not found.");
     }
 
     private static InteractionTarget FindInteractionTarget(JObject arguments, Vector2 screenPosition, Vector3? worldPosition, bool uiOnly)
@@ -1733,13 +2047,18 @@ public static partial class UnityCliBridgeServer
         ApplyScale(transform, arguments["scale"] as JArray);
     }
 
+    /// <summary>2D 스프라이트 GameObject 를 생성하고 스프라이트/정렬/색상/플립을 적용한다.</summary>
+    /// <param name="arguments">name, sprite, color, sortingLayer, sortingOrder, flipX, flipY, position, collider 인자.</param>
+    /// <returns>생성한 <see cref="GameObject"/>.</returns>
     private static GameObject CreateSprite(JObject arguments)
     {
         var name = arguments.Value<string>("name") ?? "Sprite";
         var gameObject = new GameObject(name);
         var spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
-        spriteRenderer.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
-        spriteRenderer.color = ParseColor(arguments.Value<string>("color"), Color.white);
+        var resolved = ResolveSpriteAsset(arguments.Value<string>("sprite"));
+        spriteRenderer.sprite = resolved != null ? resolved : AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+        spriteRenderer.color = Color.white;
+        ApplySpriteRenderer(spriteRenderer, arguments, null, null);
         ApplyTransform(gameObject.transform, arguments);
 
         if (arguments["collider"]?.Value<bool?>() ?? true)
@@ -1748,6 +2067,103 @@ public static partial class UnityCliBridgeServer
         }
 
         return gameObject;
+    }
+
+    /// <summary>기존 SpriteRenderer 의 스프라이트/정렬/색상/플립을 수정한다.</summary>
+    /// <param name="arguments">대상(id/name)과 sprite, color, sortingLayer, sortingOrder, flipX, flipY 인자.</param>
+    /// <returns><see cref="Success"/> 결과 객체.</returns>
+    private static object SetSpriteRenderer(JObject arguments)
+    {
+        var gameObject = FindGameObject(arguments);
+        var renderer = gameObject.GetComponent<SpriteRenderer>()
+            ?? throw NotFound($"SpriteRenderer not found on '{gameObject.name}'.");
+        var spriteSpec = arguments.Value<string>("sprite");
+        if (!string.IsNullOrEmpty(spriteSpec))
+        {
+            var sprite = ResolveSpriteAsset(spriteSpec) ?? throw NotFound($"Sprite not found: {spriteSpec}");
+            renderer.sprite = sprite;
+        }
+
+        ApplySpriteRenderer(renderer, arguments, null, null);
+        EditorUtility.SetDirty(renderer);
+        Emit("component.changed", $"SpriteRenderer set: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID() });
+        return Success(GameObjectObject(gameObject), "SpriteRenderer updated.");
+    }
+
+    /// <summary>인자에 존재하는 필드만 SpriteRenderer 에 적용한다(색상/정렬 레이어/정렬 순서/플립).</summary>
+    /// <param name="renderer">대상 <see cref="SpriteRenderer"/>.</param>
+    /// <param name="arguments">color, sortingLayer, sortingOrder, flipX, flipY 인자.</param>
+    /// <param name="applied">적용한 필드 목록(미사용 시 null).</param>
+    /// <param name="skipped">건너뛴 필드 목록(미사용 시 null).</param>
+    private static void ApplySpriteRenderer(SpriteRenderer renderer, JObject arguments, JArray applied, JArray skipped)
+    {
+        var colorText = arguments.Value<string>("color");
+        if (!string.IsNullOrEmpty(colorText))
+        {
+            renderer.color = ParseColor(colorText, renderer.color);
+        }
+
+        var sortingLayer = arguments.Value<string>("sortingLayer");
+        if (!string.IsNullOrEmpty(sortingLayer))
+        {
+            renderer.sortingLayerName = sortingLayer;
+        }
+
+        var sortingOrder = arguments.Value<int?>("sortingOrder");
+        if (sortingOrder.HasValue)
+        {
+            renderer.sortingOrder = sortingOrder.Value;
+        }
+
+        var flipX = arguments.Value<bool?>("flipX");
+        if (flipX.HasValue)
+        {
+            renderer.flipX = flipX.Value;
+        }
+
+        var flipY = arguments.Value<bool?>("flipY");
+        if (flipY.HasValue)
+        {
+            renderer.flipY = flipY.Value;
+        }
+    }
+
+    /// <summary>스프라이트 에셋 경로(또는 경로::서브스프라이트명)를 Sprite 로 로드한다.</summary>
+    /// <param name="spec">에셋 경로 또는 "경로::서브스프라이트명" 형식의 문자열.</param>
+    /// <returns>로드한 <see cref="Sprite"/>. 찾지 못하면 null.</returns>
+    private static Sprite? ResolveSpriteAsset(string spec)
+    {
+        if (string.IsNullOrEmpty(spec))
+        {
+            return null;
+        }
+
+        var sep = spec.IndexOf("::", StringComparison.Ordinal);
+        var path = sep >= 0 ? spec.Substring(0, sep) : spec;
+        var subName = sep >= 0 ? spec.Substring(sep + 2) : null;
+        var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        if (string.IsNullOrEmpty(subName))
+        {
+            if (sprite == null && AssetImporter.GetAtPath(path) is TextureImporter importer && importer.textureType != TextureImporterType.Sprite)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.SaveAndReimport();
+                sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            }
+
+            return sprite;
+        }
+
+        var reps = AssetDatabase.LoadAllAssetRepresentationsAtPath(path);
+        var named = reps.OfType<Sprite>().FirstOrDefault(s => s.name == subName);
+        if (named != null)
+        {
+            return named;
+        }
+
+        var all = AssetDatabase.LoadAllAssetsAtPath(path);
+        return all.OfType<Sprite>().FirstOrDefault(s => s.name == subName);
     }
 
     private static GameObject CreateButton(JObject arguments)
@@ -3082,7 +3498,7 @@ public static partial class UnityCliBridgeServer
     private static async Task WriteJsonAsync(HttpListenerContext context, object payload)
     {
         context.Response.ContentType = "application/json; charset=utf-8";
-        var json = JsonConvert.SerializeObject(payload, Formatting.Indented);
+        var json = JsonConvert.SerializeObject(payload, JsonSettings);
         await WriteTextAsync(context, json);
     }
 
@@ -3101,12 +3517,18 @@ public static partial class UnityCliBridgeServer
 
     private static object Success(object? result, string message)
     {
-        return new { success = true, message, result, events = Array.Empty<object>() };
+        return new { success = true, message, code = (string?)null, result, events = Array.Empty<object>() };
     }
 
-    private static object Failure(string message)
+    private static object Failure(string message) => Failure(message, ErrorCodes.Internal);
+
+    /// <summary>실패 응답 봉투를 안정적 오류 코드와 함께 생성한다.</summary>
+    /// <param name="message">사람이 읽을 수 있는 실패 메시지.</param>
+    /// <param name="code">안정적 오류 코드(<see cref="ErrorCodes"/>).</param>
+    /// <returns>{ success=false, message, code, result, events } 형태의 응답 봉투.</returns>
+    private static object Failure(string message, string code)
     {
-        return new { success = false, message, result = (object?)null, events = Array.Empty<object>() };
+        return new { success = false, message, code, result = (object?)null, events = Array.Empty<object>() };
     }
 
     private static object RequestScriptCompilation()
@@ -3341,7 +3763,7 @@ public static partial class UnityCliBridgeServer
     private static void SavePendingCompilation(PersistentCompilationState state)
     {
         EnsureStateDirectory();
-        File.WriteAllText(GetPendingCompilationPath(), JsonConvert.SerializeObject(state, Formatting.Indented));
+        File.WriteAllText(GetPendingCompilationPath(), JsonConvert.SerializeObject(state, JsonSettings));
     }
 
     private static void CompletePendingCompilation(string compilationId, bool success, string? message, bool emitImmediately)
@@ -3405,7 +3827,7 @@ public static partial class UnityCliBridgeServer
     private static void SavePendingTestRuns(List<PersistentTestRunState> pendingRuns)
     {
         EnsureStateDirectory();
-        File.WriteAllText(GetPendingTestRunsPath(), JsonConvert.SerializeObject(pendingRuns, Formatting.Indented));
+        File.WriteAllText(GetPendingTestRunsPath(), JsonConvert.SerializeObject(pendingRuns, JsonSettings));
     }
 
     private static void EnsureStateDirectory()
@@ -3423,24 +3845,83 @@ public static partial class UnityCliBridgeServer
         return Path.Combine(Directory.GetCurrentDirectory(), "Library", "UnityCliBridge", "pending-test-runs.json");
     }
 
+    /// <summary>현재 에디터 인스턴스를 instances.json 에 병합 업서트한다(덮어쓰지 않음). project:port 키로 항목을 갱신하고 default 별칭이 가장 최근 시작 인스턴스를 가리키게 한다.</summary>
+    /// <param name="host">브리지 호스트.</param>
+    /// <param name="port">브리지 포트.</param>
     private static void RegisterInstance(string host, int port)
     {
         try
         {
-            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            var directory = Path.Combine(home, ".unity-cli");
-            Directory.CreateDirectory(directory);
-            var file = Path.Combine(directory, "instances.json");
-            var content = new JObject
+            var file = GetInstancesFilePath();
+            lock (InstancesFileGate)
             {
-                ["default"] = new JObject
+                var root = ReadInstancesRoot(file);
+                var baseUrl = $"http://{host}:{port}";
+                var projectPath = Directory.GetCurrentDirectory();
+                var key = $"{Path.GetFileName(projectPath.TrimEnd('/', '\\'))}:{port}";
+                var now = DateTimeOffset.UtcNow.ToString("O");
+                var entry = new JObject
                 {
-                    ["baseUrl"] = $"http://{host}:{port}",
-                    ["updatedAt"] = DateTimeOffset.UtcNow.ToString("O"),
-                    ["projectPath"] = Directory.GetCurrentDirectory(),
+                    ["baseUrl"] = baseUrl,
+                    ["projectPath"] = projectPath,
+                    ["port"] = port,
+                    ["unityVersion"] = Application.unityVersion,
+                    ["sessionId"] = SessionId,
+                    ["updatedAt"] = now,
+                    ["alive"] = true,
+                };
+                root[key] = entry;
+                root["default"] = (JObject)entry.DeepClone();
+                _registeredInstanceKey = key;
+                File.WriteAllText(file, JsonConvert.SerializeObject(root, JsonSettings));
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    /// <summary>~/.unity-cli/instances.json 절대 경로를 돌려주고 상위 디렉터리를 보장한다.</summary>
+    /// <returns>instances.json 의 절대 경로.</returns>
+    private static string GetInstancesFilePath()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var directory = Path.Combine(home, ".unity-cli");
+        Directory.CreateDirectory(directory);
+        return Path.Combine(directory, "instances.json");
+    }
+
+    /// <summary>instances.json 을 JObject 로 읽어온다. 없거나 깨졌으면 빈 JObject.</summary>
+    /// <param name="file">instances.json 경로.</param>
+    /// <returns>파싱된 루트 JObject 또는 빈 JObject.</returns>
+    private static JObject ReadInstancesRoot(string file)
+    {
+        try { return File.Exists(file) ? (JObject)JToken.Parse(File.ReadAllText(file)) : new JObject(); }
+        catch { return new JObject(); }
+    }
+
+    /// <summary>종료/도메인 리로드 시 등록된 인스턴스의 alive 를 false 로 표시한다(베스트 에포트).</summary>
+    private static void MarkRegisteredInstanceDead()
+    {
+        if (string.IsNullOrEmpty(_registeredInstanceKey)) return;
+        try
+        {
+            var file = GetInstancesFilePath();
+            lock (InstancesFileGate)
+            {
+                var root = ReadInstancesRoot(file);
+                if (root[_registeredInstanceKey] is JObject entry)
+                {
+                    entry["alive"] = false;
+                    entry["updatedAt"] = DateTimeOffset.UtcNow.ToString("O");
+                    if (root["default"] is JObject def
+                        && string.Equals((string?)def["sessionId"], SessionId, StringComparison.Ordinal))
+                    {
+                        def["alive"] = false;
+                    }
+                    File.WriteAllText(file, JsonConvert.SerializeObject(root, JsonSettings));
                 }
-            };
-            File.WriteAllText(file, content.ToString(Formatting.Indented));
+            }
         }
         catch
         {
@@ -3466,6 +3947,60 @@ public static partial class UnityCliBridgeServer
         public DateTimeOffset Timestamp { get; set; }
         public JObject? Data { get; set; }
     }
+
+    /// <summary>브리지 도구 실행 중 발생하는 계약 오류. <see cref="Code"/> 는 안정적 식별자, <see cref="Status"/> 는 매핑할 HTTP 상태 코드이다.</summary>
+    private sealed class BridgeException : Exception
+    {
+        /// <summary>지정한 오류 코드, HTTP 상태, 메시지로 계약 오류를 생성한다.</summary>
+        /// <param name="code">안정적 오류 코드.</param>
+        /// <param name="status">매핑할 HTTP 상태 코드.</param>
+        /// <param name="message">사람이 읽을 수 있는 오류 메시지.</param>
+        public BridgeException(string code, int status, string message) : base(message)
+        {
+            Code = code;
+            Status = status;
+        }
+
+        /// <summary>안정적 오류 코드(not_found, missing_arg, bad_arg 등).</summary>
+        public string Code { get; }
+
+        /// <summary>이 오류에 매핑할 HTTP 상태 코드.</summary>
+        public int Status { get; }
+    }
+
+    /// <summary>브리지 도구 응답에 사용하는 안정적 오류 코드 상수.</summary>
+    private static class ErrorCodes
+    {
+        /// <summary>대상을 찾지 못함(HTTP 404).</summary>
+        public const string NotFound = "not_found";
+
+        /// <summary>필수 인자 누락(HTTP 400).</summary>
+        public const string MissingArg = "missing_arg";
+
+        /// <summary>인자 값이 잘못됨(HTTP 400).</summary>
+        public const string BadArg = "bad_arg";
+
+        /// <summary>존재하지 않는 도구(HTTP 200, success=false).</summary>
+        public const string UnknownTool = "unknown_tool";
+
+        /// <summary>예기치 못한 내부 오류(HTTP 500).</summary>
+        public const string Internal = "internal_error";
+    }
+
+    /// <summary>not_found(404) 계약 오류를 생성한다.</summary>
+    /// <param name="message">오류 메시지.</param>
+    /// <returns>생성한 <see cref="BridgeException"/>.</returns>
+    private static BridgeException NotFound(string message) => new BridgeException(ErrorCodes.NotFound, 404, message);
+
+    /// <summary>missing_arg(400) 계약 오류를 생성한다.</summary>
+    /// <param name="message">오류 메시지.</param>
+    /// <returns>생성한 <see cref="BridgeException"/>.</returns>
+    private static BridgeException MissingArg(string message) => new BridgeException(ErrorCodes.MissingArg, 400, message);
+
+    /// <summary>bad_arg(400) 계약 오류를 생성한다.</summary>
+    /// <param name="message">오류 메시지.</param>
+    /// <returns>생성한 <see cref="BridgeException"/>.</returns>
+    private static BridgeException BadArg(string message) => new BridgeException(ErrorCodes.BadArg, 400, message);
 
     private readonly struct InteractionTarget
     {

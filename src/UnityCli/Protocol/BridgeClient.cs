@@ -53,12 +53,40 @@ public sealed class BridgeClient : IDisposable
         return await GetJsonAsync<ResourceResponse>($"resources/{Uri.EscapeDataString(name)}", cancellationToken);
     }
 
+    /// <summary>도구를 호출하고, 구조화된 응답 봉투가 있으면 HTTP 상태와 무관하게 파싱해 반환한다.</summary>
+    /// <remarks>
+    /// 비-2xx 응답이라도 <see cref="ToolCallResponse"/> 봉투(예: not_found 404)를 담고 있으면
+    /// 예외 없이 그대로 반환하여, 종료 코드 정책은 CLI 계층이 <see cref="ToolCallResponse.Code"/> 로 결정한다.
+    /// 봉투가 아닌 본문은 원문으로 예외를 던지고, 본문이 비어 있으면 전송 오류로 예외를 던진다.
+    /// </remarks>
+    /// <param name="toolName">호출할 도구 이름.</param>
+    /// <param name="arguments">도구 인자.</param>
+    /// <param name="cancellationToken">취소 토큰.</param>
+    /// <returns>파싱한 <see cref="ToolCallResponse"/>.</returns>
     public async Task<ToolCallResponse> CallToolAsync(string toolName, JsonObject arguments, CancellationToken cancellationToken)
     {
         var request = new ToolCallRequest(toolName, arguments);
         using var response = await _httpClient.PostAsJsonAsync("tools/call", request, JsonHelpers.SerializerOptions, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        return (await response.Content.ReadFromJsonAsync<ToolCallResponse>(JsonHelpers.SerializerOptions, cancellationToken))!;
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<ToolCallResponse>(body, JsonHelpers.SerializerOptions);
+                if (parsed is not null)
+                {
+                    return parsed;
+                }
+            }
+            catch (JsonException)
+            {
+            }
+
+            throw new InvalidOperationException(body);
+        }
+
+        response.EnsureSuccessStatusCode();
+        throw new InvalidOperationException($"HTTP {(int)response.StatusCode}");
     }
 
     public async Task<EventPollResponse> PollEventsAsync(long after, int waitMs, CancellationToken cancellationToken)

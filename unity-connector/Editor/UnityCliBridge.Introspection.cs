@@ -62,17 +62,17 @@ namespace UnityCliBridge
         private static object GetComponentProperties(JObject arguments)
         {
             var gameObject = FindGameObject(arguments);
-            var typeName = arguments.Value<string>("type") ?? throw new InvalidOperationException("type is required.");
+            var typeName = arguments.Value<string>("type") ?? throw MissingArg("type is required.");
             var componentType = ResolveComponentType(typeName);
             if (componentType == null)
             {
-                return Failure($"Component type not found: {typeName}");
+                return Failure($"Component type not found: {typeName}", ErrorCodes.NotFound);
             }
 
             var component = gameObject.GetComponent(componentType);
             if (component == null)
             {
-                return Failure($"Component '{componentType.Name}' not found on '{gameObject.name}'.");
+                return Failure($"Component '{componentType.Name}' not found on '{gameObject.name}'.", ErrorCodes.NotFound);
             }
 
             return Success(new JObject
@@ -89,11 +89,11 @@ namespace UnityCliBridge
         private static object AddComponentTool(JObject arguments)
         {
             var gameObject = FindGameObject(arguments);
-            var typeName = arguments.Value<string>("type") ?? throw new InvalidOperationException("type is required.");
+            var typeName = arguments.Value<string>("type") ?? throw MissingArg("type is required.");
             var componentType = ResolveComponentType(typeName);
             if (componentType == null)
             {
-                return Failure($"Component type not found: {typeName}");
+                return Failure($"Component type not found: {typeName}", ErrorCodes.NotFound);
             }
 
             if (!typeof(Component).IsAssignableFrom(componentType))
@@ -133,15 +133,60 @@ namespace UnityCliBridge
             }, "Component added.");
         }
 
+        // --- component.update ----------------------------------------------------
+        /// <summary>지정한 GameObject 의 컴포넌트를 가져오거나 없으면 추가한 뒤, 일반 프로퍼티와 [SerializeField] private 직렬화 필드까지 값을 기록하고 적용/건너뜀 목록을 돌려준다.</summary>
+        /// <param name="arguments">id/name 타깃, type(기본 Transform), values(member=value JObject)</param>
+        /// <returns>{ id, name, type, applied:[], skipped:[{name,reason}] } 또는 실패 시 <see cref="Failure"/></returns>
+        private static object UpdateComponentTool(JObject arguments)
+        {
+            var gameObject = FindGameObject(arguments);
+            var typeName = arguments.Value<string>("type") ?? "Transform";
+            var componentType = ResolveComponentType(typeName);
+            if (componentType == null)
+            {
+                return Failure($"Component type not found: {typeName}", ErrorCodes.NotFound);
+            }
+
+            if (!typeof(Component).IsAssignableFrom(componentType))
+            {
+                return Failure($"Type is not a Component: {typeName}");
+            }
+
+            var component = gameObject.GetComponent(componentType) ?? gameObject.AddComponent(componentType);
+            if (component == null)
+            {
+                return Failure($"Failed to add component: {typeName}");
+            }
+
+            var applied = new JArray();
+            var skipped = new JArray();
+            if (arguments["values"] is JObject values)
+            {
+                ApplyValuesToComponent(component, componentType, values, applied, skipped);
+            }
+
+            Emit(EventTypes.ComponentChanged, $"Component updated: {gameObject.name}/{componentType.Name}",
+                new JObject { ["id"] = gameObject.GetInstanceID(), ["type"] = componentType.Name });
+
+            return Success(new JObject
+            {
+                ["id"] = gameObject.GetInstanceID(),
+                ["name"] = gameObject.name,
+                ["type"] = componentType.Name,
+                ["applied"] = applied,
+                ["skipped"] = skipped,
+            }, "Component updated.");
+        }
+
         // --- component.remove ----------------------------------------------------
         private static object RemoveComponentTool(JObject arguments)
         {
             var gameObject = FindGameObject(arguments);
-            var typeName = arguments.Value<string>("type") ?? throw new InvalidOperationException("type is required.");
+            var typeName = arguments.Value<string>("type") ?? throw MissingArg("type is required.");
             var componentType = ResolveComponentType(typeName);
             if (componentType == null)
             {
-                return Failure($"Component type not found: {typeName}");
+                return Failure($"Component type not found: {typeName}", ErrorCodes.NotFound);
             }
 
             if (typeof(Transform).IsAssignableFrom(componentType))
@@ -152,7 +197,7 @@ namespace UnityCliBridge
             var matching = gameObject.GetComponents(componentType);
             if (matching == null || matching.Length == 0)
             {
-                return Failure($"Component '{componentType.Name}' not found on '{gameObject.name}'.");
+                return Failure($"Component '{componentType.Name}' not found on '{gameObject.name}'.", ErrorCodes.NotFound);
             }
 
             var index = arguments["index"]?.Value<int?>() ?? 0;

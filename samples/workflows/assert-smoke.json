@@ -1,0 +1,46 @@
+{
+  "steps": [
+    {
+      "id": "make-hero",
+      "call": "gameobject.create",
+      "args": {
+        "name": "Hero"
+      },
+      "capture": {
+        "heroName": "result.name"
+      },
+      "assert": {
+        "path": "result.name",
+        "op": "equals",
+        "expected": "Hero"
+      }
+    },
+    {
+      "id": "fetch-hero",
+      "call": "gameobject.get",
+      "args": {
+        "name": "${heroName}"
+      },
+      "assert": {
+        "path": "result.name",
+        "op": "contains",
+        "expected": "Hero"
+      }
+    },
+    {
+      "id": "enter-play",
+      "call": "editor.play"
+    },
+    {
+      "id": "await-play",
+      "waitFor": {
+        "resource": "editor/state",
+        "path": "data.isPlaying",
+        "op": "equals",
+        "expected": "true",
+        "pollMs": 200,
+        "timeoutMs": 2000
+      }
+    }
+  ]
+}

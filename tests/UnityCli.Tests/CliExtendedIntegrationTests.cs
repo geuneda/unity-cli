@@ -303,6 +303,72 @@ public sealed class CliExtendedIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task TestsLastRun_ResourceReportsZeroFailures()
+    {
+        var console = new RecordingConsole();
+        var app = new CliApplication(console);
+
+        await RunAsync(app, "tests", "run", "mode=EditMode");
+        var exit = await RunAsync(app, "resource", "get", "tests/last-run");
+
+        Assert.Equal(0, exit);
+        Assert.Contains("\"failed\": 0", console.StdoutText);
+        Assert.Contains("\"runId\"", console.StdoutText);
+        Assert.Contains("\"failures\"", console.StdoutText);
+        Assert.Contains("\"finishedAt\"", console.StdoutText);
+    }
+
+    [Fact]
+    public async Task TestsLastRun_FieldSelectorResolvesFailed()
+    {
+        await RunAsync(new CliApplication(new RecordingConsole()), "tests", "run", "mode=EditMode");
+
+        var fieldConsole = new RecordingConsole();
+        var exit = await RunAsync(new CliApplication(fieldConsole), "--field=data.failed", "resource", "get", "tests/last-run");
+
+        Assert.Equal(0, exit);
+        Assert.Equal("0", fieldConsole.StdoutText.Trim());
+    }
+
+    [Fact]
+    public async Task TestsRun_CategoryFilter_RunsOnlyMatching()
+    {
+        var console = new RecordingConsole();
+        var app = new CliApplication(console);
+
+        var exit = await RunAsync(app, "tests", "run", "mode=EditMode", "category=Smoke");
+
+        Assert.Equal(0, exit);
+        Assert.Contains("\"passed\": 1", console.StdoutText);
+        Assert.Contains("\"failed\": 0", console.StdoutText);
+    }
+
+    [Fact]
+    public async Task TestsRun_RegexFilter_RunsOnlyMatching()
+    {
+        var console = new RecordingConsole();
+        var app = new CliApplication(console);
+
+        var exit = await RunAsync(app, "tests", "run", "mode=EditMode", "regex=Player");
+
+        Assert.Equal(0, exit);
+        Assert.Contains("\"passed\": 1", console.StdoutText);
+        Assert.Contains("\"failed\": 0", console.StdoutText);
+    }
+
+    [Fact]
+    public async Task TestsLastRun_BeforeAnyRun_ReturnsNullData()
+    {
+        var console = new RecordingConsole();
+        var app = new CliApplication(console);
+
+        var exit = await RunAsync(app, "resource", "get", "tests/last-run");
+
+        Assert.Equal(0, exit);
+        Assert.Contains("\"data\": null", console.StdoutText);
+    }
+
+    [Fact]
     public async Task EditorPlayAndStop_ReportsModeChange()
     {
         var console = new RecordingConsole();
@@ -343,7 +409,7 @@ public sealed class CliExtendedIntegrationTests : IAsyncLifetime
 
         var exitCode = await RunAsync(app, "gameobject");
 
-        Assert.Equal(1, exitCode);
+        Assert.Equal(2, exitCode);
         Assert.Contains("Expected a command group and action", console.StderrText);
     }
 
@@ -433,6 +499,64 @@ public sealed class CliExtendedIntegrationTests : IAsyncLifetime
         Assert.Equal(0, exitCode);
         Assert.Contains("FireSprite", console.StdoutText);
         Assert.Contains("#FF4500FF", console.StdoutText);
+    }
+
+    [Fact]
+    public async Task SpriteCreate_WithSortingAndFlip_ReturnsFields()
+    {
+        var console = new RecordingConsole();
+        var app = new CliApplication(console);
+
+        var exitCode = await RunAsync(app, "sprite", "create", "name=Hero", "color=#102030FF", "sortingLayer=Foreground", "sortingOrder=5", "flipX=true");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Hero", console.StdoutText);
+        Assert.Contains("#102030FF", console.StdoutText);
+        Assert.Contains("\"sortingLayerName\": \"Foreground\"", console.StdoutText);
+        Assert.Contains("\"sortingOrder\": 5", console.StdoutText);
+        Assert.Contains("\"flipX\": true", console.StdoutText);
+    }
+
+    [Fact]
+    public async Task SpriteSet_OnExistingSprite_UpdatesFields()
+    {
+        var console = new RecordingConsole();
+        var app = new CliApplication(console);
+
+        await RunAsync(app, "sprite", "create", "name=Coin");
+        var exitCode = await RunAsync(app, "sprite", "set", "name=Coin", "color=#FFAA00FF", "sortingOrder=9", "flipY=true");
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("SpriteRenderer updated.", console.StdoutText);
+        Assert.Contains("#FFAA00FF", console.StdoutText);
+        Assert.Contains("\"sortingOrder\": 9", console.StdoutText);
+        Assert.Contains("\"flipY\": true", console.StdoutText);
+    }
+
+    [Fact]
+    public async Task SpriteSet_TargetNotFound_ReturnsFailure()
+    {
+        var console = new RecordingConsole();
+        var app = new CliApplication(console);
+
+        var exitCode = await RunAsync(app, "sprite", "set", "name=DoesNotExist", "sortingOrder=1");
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains("was not found", console.StdoutText);
+    }
+
+    [Fact]
+    public async Task SpriteSet_FieldSelector_ReturnsScalar()
+    {
+        var setupConsole = new RecordingConsole();
+        await RunAsync(new CliApplication(setupConsole), "sprite", "create", "name=Gem");
+
+        var console = new RecordingConsole();
+        var app = new CliApplication(console);
+        var exitCode = await RunAsync(app, "sprite", "set", "name=Gem", "sortingOrder=7", "--field=result.sortingOrder");
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal("7", console.StdoutText.Trim());
     }
 
     [Fact]

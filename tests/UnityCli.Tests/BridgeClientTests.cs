@@ -125,7 +125,7 @@ public sealed class BridgeClientTests
     }
 
     [Fact]
-    public async Task CallToolAsync_ThrowsWithErrorMessage_WhenServerReturnsErrorWithToolCallResponseBody()
+    public async Task CallToolAsync_ReturnsEnvelope_WhenServerReturnsErrorWithToolCallResponseBody()
     {
         var errorResponse = new ToolCallResponse(false, "Tool not found", null, null);
         var handler = new MockHandler();
@@ -134,10 +134,88 @@ public sealed class BridgeClientTests
         using var client = new BridgeClient(BaseUrl, DefaultTimeout, handler);
 
         var args = new JsonObject();
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => client.CallToolAsync("missing-tool", args, CancellationToken.None));
+        var result = await client.CallToolAsync("missing-tool", args, CancellationToken.None);
 
-        Assert.Equal("Tool not found", ex.Message);
+        Assert.False(result.Success);
+        Assert.Equal("Tool not found", result.Message);
+        Assert.Null(result.Code);
+    }
+
+    [Fact]
+    public async Task CallToolAsync_ParsesEnvelope_OnHttp404_NoThrow()
+    {
+        var errorResponse = new ToolCallResponse(false, "GameObject 'X' was not found.", null, null, "not_found");
+        var handler = new MockHandler();
+        handler.Enqueue(JsonResponse(errorResponse, HttpStatusCode.NotFound));
+
+        using var client = new BridgeClient(BaseUrl, DefaultTimeout, handler);
+
+        var result = await client.CallToolAsync("gameobject.get", new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("not_found", result.Code);
+        Assert.Equal("GameObject 'X' was not found.", result.Message);
+    }
+
+    [Fact]
+    public async Task CallToolAsync_ParsesEnvelope_OnHttp500_WithCode()
+    {
+        var errorResponse = new ToolCallResponse(false, "Boom.", null, null, "internal_error");
+        var handler = new MockHandler();
+        handler.Enqueue(JsonResponse(errorResponse, HttpStatusCode.InternalServerError));
+
+        using var client = new BridgeClient(BaseUrl, DefaultTimeout, handler);
+
+        var result = await client.CallToolAsync("scene.create", new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("internal_error", result.Code);
+    }
+
+    [Fact]
+    public async Task CallToolAsync_ParsesEnvelope_OnHttp200_SuccessFalse_UnknownTool()
+    {
+        var errorResponse = new ToolCallResponse(false, "Unsupported tool 'x.y'.", null, null, "unknown_tool");
+        var handler = new MockHandler();
+        handler.Enqueue(JsonResponse(errorResponse));
+
+        using var client = new BridgeClient(BaseUrl, DefaultTimeout, handler);
+
+        var result = await client.CallToolAsync("x.y", new JsonObject(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("unknown_tool", result.Code);
+    }
+
+    [Fact]
+    public async Task CallToolAsync_Throws_OnTransportFailure()
+    {
+        var handler = new MockHandler();
+        handler.Enqueue(_ => throw new HttpRequestException("Connection refused"));
+
+        using var client = new BridgeClient(BaseUrl, TimeSpan.FromSeconds(1), handler);
+
+        await Assert.ThrowsAsync<HttpRequestException>(
+            () => client.CallToolAsync("some-tool", new JsonObject(), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CallToolAsync_Throws_OnEmptyNon2xxBody()
+    {
+        var handler = new MockHandler();
+        handler.Enqueue(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.InternalServerError);
+            response.Content = new StringContent("", Encoding.UTF8, "text/plain");
+            return response;
+        });
+
+        using var client = new BridgeClient(BaseUrl, DefaultTimeout, handler);
+
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(
+            () => client.CallToolAsync("failing-tool", new JsonObject(), CancellationToken.None));
+
+        Assert.Contains("500", ex.Message);
     }
 
     [Fact]
@@ -370,7 +448,7 @@ public sealed class BridgeClientTests
     // -- EnsureSuccessAsync --
 
     [Fact]
-    public async Task EnsureSuccess_ThrowsWithMessage_WhenErrorBodyIsToolCallResponse()
+    public async Task EnsureSuccess_ParsesEnvelope_WhenErrorBodyIsToolCallResponse()
     {
         var errorBody = new ToolCallResponse(false, "Specific error message", null, null);
         var handler = new MockHandler();
@@ -378,10 +456,10 @@ public sealed class BridgeClientTests
 
         using var client = new BridgeClient(BaseUrl, DefaultTimeout, handler);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => client.CallToolAsync("failing-tool", new JsonObject(), CancellationToken.None));
+        var result = await client.CallToolAsync("failing-tool", new JsonObject(), CancellationToken.None);
 
-        Assert.Equal("Specific error message", ex.Message);
+        Assert.False(result.Success);
+        Assert.Equal("Specific error message", result.Message);
     }
 
     [Fact]
@@ -442,7 +520,7 @@ public sealed class BridgeClientTests
     }
 
     [Fact]
-    public async Task EnsureSuccess_ThrowsWithRawText_WhenToolCallResponseHasNoMessage()
+    public async Task EnsureSuccess_ParsesEnvelope_WhenToolCallResponseHasNoMessage()
     {
         var handler = new MockHandler();
         var json = JsonSerializer.Serialize(
@@ -457,10 +535,10 @@ public sealed class BridgeClientTests
 
         using var client = new BridgeClient(BaseUrl, DefaultTimeout, handler);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => client.CallToolAsync("failing-tool", new JsonObject(), CancellationToken.None));
+        var result = await client.CallToolAsync("failing-tool", new JsonObject(), CancellationToken.None);
 
-        Assert.Contains("success", ex.Message);
+        Assert.False(result.Success);
+        Assert.Equal("", result.Message);
     }
 
     // -- Dispose --

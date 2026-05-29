@@ -2,6 +2,13 @@
 
 설계 워크플로우(4-lens)로 도출한 우선순위 스펙 중, 1차 구현(introspection/catalog/doctor/screenshot 등)에서 **의도적으로 다음으로 미룬 항목**. 각 항목은 콜드 스타트로 이어갈 수 있게 스펙/대상 파일/난이도를 적어둠.
 
+## 구현 현황 (2026-05-29)
+
+Tier 2(T2-1~T2-9) + Tier 3(T3-1~T3-5) **전 항목 구현 완료**. `dotnet test UnityCli.slnx` 그린(259 통과/0 실패, 베이스라인 141 → +118), `BridgeCatalogConsistencyTests` 파서티 통과.
+
+- **남은 검증**: connector C#는 `dotnet test`가 컴파일하지 않음(Unity 전용). 신규 도구/리소스의 **런타임/컴파일 검증은 Unity 도메인 리로드(`editor refresh`)에서 운영자가 수행 필요**. README의 "현재 검증 상태" 목록에는 아직 추가하지 않음(실 Editor 확인 후 추가).
+- **신규 도구**: `console.logs`, `sprite.set`, `asset.manage`, `prefab.create/instantiate/apply/unpack`, `asset.create-scriptableobject`, `scriptableobject.get/list`, `scene.open-additive/set-active/list-loaded`. **신규 리소스**: `tests/last-run`, `addressables/list`. **계약 변경**: 통일 에러 봉투(`code`) + 종료코드 0/1/2/3 + `--strict`(T2-1).
+
 구현 규칙 (1차에서 확립):
 - 신규 도구 = `unity-connector/Editor/UnityCliBridge.Catalog.cs`의 `ToolCatalog` + `ExecuteToolAsync` switch arm 둘 다. `BridgeCatalogConsistencyTests`가 드리프트 검출.
 - connector 변경은 `editor refresh` 후 도메인 리로드(~20s)로만 반영. `editor compile` 단독은 변경 미반영.
