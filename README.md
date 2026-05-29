@@ -211,6 +211,12 @@ scripts/verify-editor.sh --stage ui-input --report reports/verify-editor/ui-inpu
   - `scripts/verify-editor.sh` end-to-end pass on Unity `6000.3.11f1`
   - `status.sessionId`는 health 응답에 값이 비어 있어도 가장 최근 `bridge.started` 이벤트에서 복구
 
+- BACKLOG Tier 2+3 추가분 (2026-05-29, 라이브 Unity `6000.3.11f1`/SpellDefense 에서 재컴파일 0 에러·0 경고 + `capabilities` 노출 확인):
+  - 런타임 실행 확인(read-only): `scene.list-loaded`(buildIndex/isActive), `scriptableobject.get`, `scriptableobject.list`(실 1336개), `resource get addressables/list`(실 그룹), `console.logs`, CLI `assert`/`logs wait`/`instances list`
+  - 컴파일·광고 확인(쓰기형이라 실 프로젝트 미실행, `dotnet test` mock 통합테스트로 검증): `prefab.create`/`prefab.instantiate`/`prefab.apply`/`prefab.unpack`, `asset.manage`, `asset.create-scriptableobject`, `sprite.set`, `scene.open-additive`/`scene.set-active`, `scene.unload path=`
+  - 신규 리소스: `resource get tests/last-run`, `resource get addressables/list`
+  - 계약: 통일 오류 봉투(`code`) + 종료코드 0/1/2/3 + `--strict`, `tests.run`에 `category=`/`regex=` 필터, 워크플로우 `assert`/`capture`/`waitFor`(resource)/`retry`/조건부 skip
+
 - `ui-input` stage에서 현재 실제 검증하는 UI 상태:
   - Button `double-click`, `long-press`, `swipe`
   - Button `pointerId` click
