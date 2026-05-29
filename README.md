@@ -18,9 +18,9 @@ Unity Editor를 HTTP 브리지로 노출하고, `scene`, `gameobject`, `sprite`,
 직접 매핑되는 그룹 명령:
 
 - `scene create|load|save|info|delete|unload`
-- `gameobject create|get|delete|duplicate|reparent|move|rotate|scale|set-transform|select`
+- `gameobject create|get|delete|duplicate|reparent|move|rotate|scale|set-transform|select|find|set-properties`
 - `sprite create`
-- `component update`
+- `component list|get|add|update|remove`
 - `material create|assign|modify|info`
 - `asset list|add-to-scene`
 - `package list|add`
@@ -37,6 +37,7 @@ Unity Editor를 HTTP 브리지로 노출하고, `scene`, `gameobject`, `sprite`,
 
 - `status`
 - `capabilities`
+- `doctor`
 - `tool list`
 - `tool call <name> ...`
 - `resource list`
@@ -45,6 +46,8 @@ Unity Editor를 HTTP 브리지로 노출하고, `scene`, `gameobject`, `sprite`,
 - `batch run <file>`
 - `workflow run <file>`
 - `mock serve`
+
+`doctor`는 브리지<->CLI 계약을 자가 점검합니다. bridge.reachable / capabilities / tools.parity(`/tools` vs `/capabilities`) / events.contract(CLI가 요구하는 이벤트 광고 여부) / version을 확인하고, 각 항목을 `[PASS]/[WARN]/[FAIL] <check>: <detail>`로 출력합니다. 전부 통과하면 종료코드 0, FAIL이 하나라도 있으면 1을 반환하며 `--json`/`--quiet`를 따릅니다.
 
 ## 로컬 테스트
 
@@ -67,6 +70,14 @@ dotnet run --project src/UnityCli -- workflow run samples/workflows/smoke-test.j
 벡터 인자는 셸 quoting 없이 `position=1,2,3`, `rotation=0,90,0`, `scale=2,2,2` 형태로 줄 수 있습니다.
 기본 CLI 타임아웃은 `10000ms` 입니다. 테스트 실행이나 패키지 작업처럼 오래 걸릴 수 있는 명령은 `--timeout-ms=60000` 이상을 권장합니다.
 
+글로벌 옵션:
+
+- `--base-url=<url>`: 브리지 URL (없으면 instances.json 또는 `http://127.0.0.1:52737`)
+- `--json`: JSON 출력 모드
+- `--timeout-ms=<ms>`: 요청 타임아웃 (기본 `10000`)
+- `--field=<jsonpath>`: 전체 JSON 대신 점/인덱스 경로로 해석한 스칼라만 출력 (`result.id`, `data.logs[0].data.level`, `data.renderPipeline`). 경로 미해석 시 종료코드 2. 예: `id=$(unity-cli gameobject create name=Hero --field=result.id)`
+- `--quiet`: 성공 JSON 출력 억제 (종료코드로만 성공/실패 판단)
+
 ## Unity에 붙이기
 
 `unity-connector` 폴더를 Unity 프로젝트의 `Packages/com.geuneda.unity-cli-connector`로 복사하거나 Git dependency로 추가합니다.
@@ -82,7 +93,7 @@ CLI는 `--base-url`이 없으면 이 `instances.json`의 `default.baseUrl`을 �
 현재 구현은 Editor API 중심이며, 아래 흐름을 지원합니다.
 
 - 씬 생성/로드/저장/삭제
-- GameObject 생성/조회/복제/삭제/변환/선택
+- GameObject 생성/조회/복제/삭제/변환/선택/검색/속성 변경
 - 2D sprite 생성
 - Canvas/Button/Text/Image 생성
 - Toggle/Slider/ScrollRect/InputField 생성 및 상태 변경
@@ -91,13 +102,15 @@ CLI는 `--base-url`이 없으면 이 `instances.json`의 `default.baseUrl`을 �
 - TMP Essential Resources가 없으면 첫 TMP UI 생성 시 자동 import
 - 클릭/더블클릭/롱프레스/탭/드래그/스와이프 입력 디스패치
 - `pointerId`를 포함한 멀티포인터 입력 시뮬레이션
-- 컴포넌트 갱신
+- 컴포넌트 목록/조회/추가/갱신/제거 (`[SerializeField] private` 직렬화 프로퍼티 포함)
 - 머티리얼 생성/할당/수정
 - 에셋 목록 조회 및 프리팹 인스턴스화
 - 패키지 목록 조회 및 설치 요청
 - 테스트 목록 조회 및 EditMode/PlayMode 실행
 - 콘솔 로그 발행/조회/초기화
 - 메뉴 실행, Play/Pause/Refresh/Compile 제어
+- 프로젝트/빌드 설정 조회 (`resource get project/info`)
+- 브리지<->CLI 계약 자가 점검 (`doctor`)
 
 ## 실제 Editor 검증 예시
 
@@ -159,9 +172,10 @@ scripts/verify-editor.sh --stage ui-input --report reports/verify-editor/ui-inpu
 
 ## 현재 검증 상태
 
-- 실제 Editor에서 확인됨:
+- 실제 Editor에서 확인됨 (Unity `6000.3.11f1`, SpellDefense URP 프로젝트):
   - `scene.*`
-  - `gameobject.*`
+  - `gameobject.*` (`gameobject.find`, `gameobject.set-properties` 포함)
+  - `component.list`, `component.get`, `component.add`, `component.update`, `component.remove`
   - `sprite.create`
   - `material.*`
   - `asset.list`, `asset.add-to-scene`
@@ -174,7 +188,10 @@ scripts/verify-editor.sh --stage ui-input --report reports/verify-editor/ui-inpu
   - `input.tap`, `input.double-tap`, `input.long-press`, `input.drag`, `input.swipe`
   - `menu.execute`
   - `editor.refresh`, `editor.compile`, `editor.play`, `editor.pause`, `editor.stop`
-  - `resource list`, `resource get editor/state`, `resource get scene/hierarchy`, `resource get ui/hierarchy`, `resource get tests/catalog`, `resource get packages/list`
+  - `resource list`, `resource get editor/state`, `resource get scene/hierarchy`, `resource get ui/hierarchy`, `resource get tests/catalog`, `resource get packages/list`, `resource get project/info`
+  - `doctor` (bridge<->CLI 계약 자가 점검)
+  - `--field`, `--quiet` 글로벌 옵션
+  - `ui.screenshot.capture` (`source=game|scene`, URP에서도 정상 캡처)
   - `events tail`
   - `batch run samples/workflows/bootstrap.json`
   - `workflow run samples/workflows/smoke-test.json`
@@ -197,6 +214,13 @@ scripts/verify-editor.sh --stage ui-input --report reports/verify-editor/ui-inpu
 - 입력 시뮬레이션 참고:
   - `ui.click name=CliButton pointerId=21`
   - `input.swipe worldFrom=2,1,0 worldTo=2.75,1,0 pointerId=9`
+
+- 최근 개선 사항:
+  - `tool list`가 도구별 실제 설명과 `(required: ...)` 인자를 표시합니다(이전 placeholder 제거). `/tools` 엔드포인트는 `name/category/description/requiredArguments/optionalArguments/arguments`(인자별 type+description 포함)를 반환합니다.
+  - 도구/리소스/이벤트 목록이 단일 출처(ToolCatalog/ResourceCatalog/EventTypes)에서 파생되어 더 이상 어긋나지 않습니다.
+  - `capabilities`의 이벤트 목록이 완전해졌습니다(`bridge.started`, `scene.loaded`, `scene.saved`, `transform.changed` 광고).
+  - 브리지가 최대 5000개의 이벤트 링 버퍼를 유지하고, `events` 폴 응답에 `floor`(최저 보존 커서) 필드가 포함되어 잘린 구간을 감지할 수 있습니다.
+  - GameObject 직렬화가 강화되어 결과에 `tag`, `layer`, `layerName`, `isStatic`, `activeInHierarchy`, `childCount`가 포함됩니다. SpriteRenderer 오브젝트는 `spritePath`, `sortingLayerName`, `sortingOrder`, `flipX`, `flipY`를, UI 오브젝트는 `image`/`button`/`canvasGroup` 하위 오브젝트(팝업 가시성 검증용 `CanvasGroup.alpha`, `button.interactable`, `image.fillAmount`)를 추가로 노출합니다.
 
 - 현재 EditMode 제한:
   - 입력 필드의 `isFocused`는 Unity EditMode에서 `ActivateInputField()` 이후에도 기대와 다르게 남을 수 있습니다. 현재 CLI 검증은 `eventSystemSelectedObjectName`, `isSelected`, 그리고 probe 로그를 기준으로 포커스 전환을 확인합니다.

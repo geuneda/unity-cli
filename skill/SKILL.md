@@ -36,8 +36,12 @@ dotnet src/UnityCli/bin/Debug/net10.0/UnityCli.dll <command>
 | `--base-url=<url>` | 브리지 URL | instances.json 또는 `http://127.0.0.1:52737` |
 | `--json` | JSON 출력 모드 | off |
 | `--timeout-ms=<ms>` | 요청 타임아웃 | 10000 |
+| `--field=<jsonpath>` | 응답에서 해당 스칼라 값만 출력 (점/인덱스 경로). 경로 미해석 시 종료코드 2 | off |
+| `--quiet` | 성공 JSON 출력 억제 (종료코드로만 성공/실패 판단) | off |
 
 긴 작업(테스트, 패키지, 컴파일)에는 `--timeout-ms=60000` 이상을 사용한다.
+
+`--field`는 전체 JSON 대신 점/인덱스 경로(`result.id`, `data.logs[0].data.level`, `data.renderPipeline`)로 해석한 스칼라만 출력하므로 스크립팅에 쓰기 좋다. 예: `id=$(unity-cli gameobject create name=Hero --field=result.id)`.
 
 ## 명령 체계
 
@@ -53,12 +57,15 @@ dotnet src/UnityCli/bin/Debug/net10.0/UnityCli.dll <command>
 
 - `status` -- 브리지 상태 확인
 - `capabilities` -- 지원 기능 목록
-- `tool list` / `tool call <name> [key=value...]` -- 도구 직접 호출
+- `doctor` -- 브리지<->CLI 계약 자가 점검 (bridge.reachable, capabilities, tools.parity, events.contract, version). 각 항목을 `[PASS]/[WARN]/[FAIL] <check>: <detail>`로 출력하고, 전부 통과 시 종료코드 0, FAIL이 하나라도 있으면 1. `--json`/`--quiet` 적용
+- `tool list` / `tool call <name> [key=value...]` -- 도구 직접 호출. `tool list`는 도구별 실제 설명과 `(required: ...)` 인자를 표시한다
 - `resource list` / `resource get <name>` -- 리소스 조회
 - `events tail [after=0] [waitMs=1000]` -- 이벤트 폴링
 - `batch run <file>` -- JSON 배치 파일 실행
 - `workflow run <file>` -- 이벤트 기반 워크플로우 실행
 - `mock serve [host=127.0.0.1] [port=52737]` -- 테스트용 mock 서버
+
+`tool list`/`resource list`/`capabilities`의 도구·리소스·이벤트 목록은 단일 출처(ToolCatalog/ResourceCatalog/EventTypes)에서 파생되므로 더 이상 어긋나지 않는다. `/tools` 엔드포인트는 `name/category/description/requiredArguments/optionalArguments/arguments`(인자별 type+description 포함)를 반환한다. `project/info` 리소스로 Unity 버전·빌드 타깃·렌더 파이프라인(URP/Built-in) 등 프로젝트 설정을 조회할 수 있다.
 
 ### 비동기 대기 명령
 

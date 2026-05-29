@@ -215,7 +215,13 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             "gameobject.scale" => Success("GameObject scaled.", UpdateTransform(args, "scale")),
             "gameobject.set-transform" => Success("GameObject transform updated.", UpdateTransform(args, "all")),
             "gameobject.select" => Success("GameObject selected.", SelectGameObject(args)),
+            "gameobject.find" => Success("GameObjects found.", FindGameObjects(args)),
+            "gameobject.set-properties" => Success("GameObject properties set.", SetGameObjectProperties(args)),
             "component.update" => Success("Component updated.", UpdateComponent(args)),
+            "component.list" => Success("Components listed.", ListComponents(args)),
+            "component.get" => GetComponentResponse(args),
+            "component.add" => AddComponentResponse(args),
+            "component.remove" => RemoveComponentResponse(args),
             "material.create" => Success("Material created.", CreateMaterial(args)),
             "material.assign" => Success("Material assigned.", AssignMaterial(args)),
             "material.modify" => Success("Material modified.", ModifyMaterial(args)),
@@ -500,6 +506,225 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
 
         Emit("component.changed", $"Component updated: {state.Name}/{type}", new JsonObject { ["id"] = state.Id, ["type"] = type });
         return GameObjectObject(state);
+    }
+
+    private JsonNode ListComponents(JsonObject args)
+    {
+        var state = ResolveGameObject(args);
+        var includeValues = args["includeValues"] is not null && bool.TryParse(args["includeValues"]!.ToString(), out var iv) && iv;
+        var components = new JsonArray();
+        lock (_gate)
+        {
+            foreach (var pair in state.Components)
+            {
+                var entry = new JsonObject
+                {
+                    ["type"] = pair.Key,
+                    ["fullType"] = pair.Key,
+                    ["enabled"] = true,
+                };
+                if (includeValues)
+                {
+                    entry["properties"] = JsonHelpers.DeepClone(pair.Value);
+                }
+
+                components.Add(entry);
+            }
+
+            return new JsonObject
+            {
+                ["id"] = state.Id,
+                ["name"] = state.Name,
+                ["count"] = state.Components.Count,
+                ["components"] = components,
+            };
+        }
+    }
+
+    private ToolCallResponse GetComponentResponse(JsonObject args)
+    {
+        var state = ResolveGameObject(args);
+        var type = GetString(args, "type", string.Empty);
+        lock (_gate)
+        {
+            if (string.IsNullOrEmpty(type) || !state.Components.TryGetValue(type, out var values))
+            {
+                return new ToolCallResponse(false, $"Component '{type}' not found on '{state.Name}'.", null, null);
+            }
+
+            return Success("Component read.", new JsonObject
+            {
+                ["id"] = state.Id,
+                ["name"] = state.Name,
+                ["type"] = type,
+                ["properties"] = JsonHelpers.DeepClone(values),
+            });
+        }
+    }
+
+    private ToolCallResponse AddComponentResponse(JsonObject args)
+    {
+        var state = ResolveGameObject(args);
+        var type = GetString(args, "type", string.Empty);
+        if (string.IsNullOrEmpty(type))
+        {
+            return new ToolCallResponse(false, "type is required.", null, null);
+        }
+
+        var allowDuplicate = args["allowDuplicate"] is not null && bool.TryParse(args["allowDuplicate"]!.ToString(), out var ad) && ad;
+        lock (_gate)
+        {
+            if (!allowDuplicate && state.Components.ContainsKey(type))
+            {
+                return new ToolCallResponse(false, $"Component already exists: {type}. Pass allowDuplicate=true to add another.", null, null);
+            }
+
+            var values = JsonHelpers.EnsureObject(args["values"]);
+            state.Components[type] = values;
+            var applied = new JsonArray();
+            foreach (var pair in values)
+            {
+                applied.Add(pair.Key);
+            }
+
+            Emit("component.changed", $"Component added: {state.Name}/{type}", new JsonObject { ["id"] = state.Id, ["type"] = type });
+            return Success("Component added.", new JsonObject
+            {
+                ["id"] = state.Id,
+                ["name"] = state.Name,
+                ["type"] = type,
+                ["applied"] = applied,
+                ["skipped"] = new JsonArray(),
+            });
+        }
+    }
+
+    private ToolCallResponse RemoveComponentResponse(JsonObject args)
+    {
+        var state = ResolveGameObject(args);
+        var type = GetString(args, "type", string.Empty);
+        if (string.Equals(type, "Transform", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ToolCallResponse(false, "Transform/RectTransform cannot be removed.", null, null);
+        }
+
+        lock (_gate)
+        {
+            if (!state.Components.Remove(type))
+            {
+                return new ToolCallResponse(false, $"Component '{type}' not found on '{state.Name}'.", null, null);
+            }
+
+            Emit("component.changed", $"Component removed: {state.Name}/{type}", new JsonObject { ["id"] = state.Id, ["type"] = type });
+            return Success("Component removed.", new JsonObject
+            {
+                ["id"] = state.Id,
+                ["name"] = state.Name,
+                ["removed"] = true,
+                ["type"] = type,
+                ["index"] = TryParseInt(GetNullableString(args, "index")),
+            });
+        }
+    }
+
+    private JsonNode FindGameObjects(JsonObject args)
+    {
+        var nameContains = GetNullableString(args, "nameContains");
+        var tag = GetNullableString(args, "tag");
+        var component = GetNullableString(args, "component");
+        var activeOnly = args["activeOnly"] is not null && bool.TryParse(args["activeOnly"]!.ToString(), out var ao) && ao;
+        var limit = TryParseInt(GetNullableString(args, "limit"), 200);
+
+        var items = new JsonArray();
+        var matched = 0;
+        var truncated = false;
+        lock (_gate)
+        {
+            foreach (var state in _gameObjects.Values)
+            {
+                if (activeOnly && !state.Active)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(nameContains) && state.Name.IndexOf(nameContains, StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(tag) && !string.Equals(state.Tag, tag, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(component) && !state.Components.ContainsKey(component))
+                {
+                    continue;
+                }
+
+                matched++;
+                if (items.Count < limit)
+                {
+                    items.Add(GameObjectObject(state));
+                }
+                else
+                {
+                    truncated = true;
+                }
+            }
+        }
+
+        return new JsonObject { ["count"] = matched, ["truncated"] = truncated, ["items"] = items };
+    }
+
+    private JsonNode SetGameObjectProperties(JsonObject args)
+    {
+        var state = ResolveGameObject(args);
+        var applied = new JsonArray();
+        lock (_gate)
+        {
+            if (args["active"] is not null && bool.TryParse(args["active"]!.ToString(), out var active))
+            {
+                state.Active = active;
+                applied.Add("active");
+            }
+
+            var tag = GetNullableString(args, "tag");
+            if (!string.IsNullOrEmpty(tag))
+            {
+                state.Tag = tag;
+                applied.Add("tag");
+            }
+
+            if (args["layer"] is not null)
+            {
+                state.Layer = TryParseInt(args["layer"]!.ToString());
+                applied.Add("layer");
+            }
+
+            var newName = GetNullableString(args, "newName");
+            if (!string.IsNullOrEmpty(newName))
+            {
+                state.Name = newName;
+                applied.Add("newName");
+            }
+        }
+
+        Emit("hierarchy.changed", $"GameObject updated: {state.Name}", new JsonObject { ["id"] = state.Id });
+        return new JsonObject { ["applied"] = applied, ["gameObject"] = GameObjectObject(state) };
+    }
+
+    private JsonNode BuildProjectInfo()
+    {
+        return new JsonObject
+        {
+            ["unityVersion"] = "mock",
+            ["projectPath"] = _activeScenePath ?? string.Empty,
+            ["productName"] = "MockProject",
+            ["renderPipeline"] = "Mock",
+            ["isPlaying"] = _playMode,
+            ["scenesInBuild"] = new JsonArray(),
+        };
     }
 
     private JsonNode CreateMaterial(JsonObject args)
@@ -1006,7 +1231,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         return new CapabilityResponse(
             ToolCatalog().Select(x => x.Name).ToArray(),
             ResourceCatalog().Select(x => x.Name).ToArray(),
-            ["scene.changed", "scene.loaded", "scene.saved", "hierarchy.changed", "selection.changed", "component.changed", "asset.changed", "package.changed", "tests.started", "tests.completed", "console.log", "editor.compilation_started", "editor.compiled", "editor.play_mode_changed", "editor.pause_changed", "editor.refreshed", "menu.executed", "ui.created", "ui.focused", "ui.blurred", "ui.clicked", "ui.double_clicked", "ui.long_pressed", "ui.dragged", "ui.swiped", "ui.toggle_changed", "ui.slider_changed", "ui.inputfield_changed", "input.tapped", "input.double_tapped", "input.long_pressed", "input.dragged", "input.swiped"],
+            ["bridge.started", "scene.changed", "scene.loaded", "scene.saved", "hierarchy.changed", "transform.changed", "selection.changed", "component.changed", "asset.changed", "package.changed", "tests.started", "tests.completed", "console.log", "editor.compilation_started", "editor.compiled", "editor.play_mode_changed", "editor.pause_changed", "editor.refreshed", "menu.executed", "ui.created", "ui.focused", "ui.blurred", "ui.clicked", "ui.double_clicked", "ui.long_pressed", "ui.dragged", "ui.swiped", "ui.toggle_changed", "ui.slider_changed", "ui.inputfield_changed", "input.tapped", "input.double_tapped", "input.long_pressed", "input.dragged", "input.swiped"],
             new Dictionary<string, string>
             {
                 ["transport"] = "http",
@@ -1034,8 +1259,14 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ToolDescriptor("gameobject.scale", "gameobject", "Scale a GameObject.", [], ["id", "name", "scale"]),
             new ToolDescriptor("gameobject.set-transform", "gameobject", "Set a GameObject transform.", [], ["id", "name", "position", "rotation", "scale"]),
             new ToolDescriptor("gameobject.select", "gameobject", "Select a GameObject.", [], ["id", "name"]),
+            new ToolDescriptor("gameobject.find", "gameobject", "Query GameObjects.", [], ["tag", "layer", "component", "nameContains", "path", "activeOnly", "includeInactive", "limit"]),
+            new ToolDescriptor("gameobject.set-properties", "gameobject", "Set GameObject-level state.", [], ["id", "name", "active", "tag", "layer", "static", "newName", "recursiveLayer"]),
             new ToolDescriptor("sprite.create", "sprite", "Create a SpriteRenderer.", ["name"], ["position", "color"]),
             new ToolDescriptor("component.update", "component", "Patch a component.", ["type"], ["id", "name", "values"]),
+            new ToolDescriptor("component.list", "component", "List components on a GameObject.", [], ["id", "name", "includeValues"]),
+            new ToolDescriptor("component.get", "component", "Read a component's serialized properties.", ["type"], ["id", "name"]),
+            new ToolDescriptor("component.add", "component", "Add a component.", ["type"], ["id", "name", "values", "allowDuplicate"]),
+            new ToolDescriptor("component.remove", "component", "Remove a component.", ["type"], ["id", "name", "index"]),
             new ToolDescriptor("material.create", "material", "Create a material.", ["path"], ["name", "shader", "color"]),
             new ToolDescriptor("material.assign", "material", "Assign a material.", ["materialPath"], ["id", "name"]),
             new ToolDescriptor("material.modify", "material", "Modify a material.", ["path"], ["shader", "color"]),
@@ -1099,6 +1330,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ResourceDescriptor("console/logs", "Console logs."),
             new ResourceDescriptor("tests/catalog", "Known tests."),
             new ResourceDescriptor("packages/list", "Installed packages."),
+            new ResourceDescriptor("project/info", "Project, build target, render pipeline and scenes-in-build info."),
         ];
     }
 
@@ -1113,6 +1345,7 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             "console/logs" => new ResourceResponse(name, GetLogs(new JsonObject())),
             "tests/catalog" => new ResourceResponse(name, ListTests(new JsonObject())),
             "packages/list" => new ResourceResponse(name, ListPackages()),
+            "project/info" => new ResourceResponse(name, BuildProjectInfo()),
             _ => new ResourceResponse(name, null),
         };
     }
@@ -1175,6 +1408,10 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         {
             ["id"] = state.Id,
             ["name"] = state.Name,
+            ["activeSelf"] = state.Active,
+            ["activeInHierarchy"] = state.Active,
+            ["tag"] = state.Tag,
+            ["layer"] = state.Layer,
             ["parentId"] = state.ParentId,
             ["scenePath"] = state.ScenePath,
             ["primitive"] = state.Primitive,
@@ -1434,6 +1671,12 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
 
         public float[] Scale { get; set; } = [1, 1, 1];
 
+        public bool Active { get; set; } = true;
+
+        public string Tag { get; set; } = "Untagged";
+
+        public int Layer { get; set; }
+
         public Dictionary<string, JsonObject> Components { get; } = new(StringComparer.OrdinalIgnoreCase)
         {
             ["Transform"] = new JsonObject(),
@@ -1448,6 +1691,9 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
                 Position = Position.ToArray(),
                 Rotation = Rotation.ToArray(),
                 Scale = Scale.ToArray(),
+                Active = Active,
+                Tag = Tag,
+                Layer = Layer,
             };
 
             foreach (var pair in Components)

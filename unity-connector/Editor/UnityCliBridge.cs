@@ -28,7 +28,7 @@ using TMPro;
 namespace UnityCliBridge
 {
 [InitializeOnLoad]
-public static class UnityCliBridgeServer
+public static partial class UnityCliBridgeServer
 {
     private static readonly object Gate = new();
     private static readonly List<BridgeEvent> Events = new();
@@ -39,25 +39,10 @@ public static class UnityCliBridgeServer
     private static long _cursor;
     private static double _nextStartAttemptAt = -1d;
     private static readonly string SessionId = Guid.NewGuid().ToString("N");
-    private static readonly string[] ToolNames =
-    {
-        "scene.create", "scene.load", "scene.save", "scene.info", "scene.delete", "scene.unload",
-        "gameobject.create", "gameobject.get", "gameobject.delete", "gameobject.duplicate", "gameobject.reparent", "gameobject.move", "gameobject.rotate", "gameobject.scale", "gameobject.set-transform", "gameobject.select",
-        "sprite.create",
-        "component.update",
-        "material.create", "material.assign", "material.modify", "material.info",
-        "asset.list", "asset.add-to-scene", "asset.import-texture",
-        "package.list", "package.add",
-        "tests.list", "tests.run",
-        "console.get", "console.clear", "console.send",
-        "ui.canvas.create", "ui.button.create", "ui.text.create", "ui.image.create", "ui.toggle.create", "ui.slider.create", "ui.scrollrect.create", "ui.inputfield.create",
-        "ui.panel.create", "ui.layout.add", "ui.recttransform.modify", "ui.screenshot.capture",
-        "ui.toggle.set", "ui.slider.set", "ui.scrollrect.set", "ui.inputfield.set-text", "ui.focus", "ui.blur",
-        "ui.click", "ui.double-click", "ui.long-press", "ui.drag", "ui.swipe",
-        "input.tap", "input.double-tap", "input.long-press", "input.drag", "input.swipe",
-        "menu.execute",
-        "editor.play", "editor.stop", "editor.pause", "editor.refresh", "editor.compile", "editor.gameview.resize"
-    };
+
+    // ToolNames, ToolCatalog, ResourceCatalog and EventTypes are the single source of truth.
+    // They live in UnityCliBridge.Catalog.cs. Adding a tool there + a switch arm in ExecuteToolAsync
+    // is enforced for parity by the BridgeCatalogConsistency tests.
 
     static UnityCliBridgeServer()
     {
@@ -176,8 +161,8 @@ public static class UnityCliBridgeServer
                 await WriteJsonAsync(context, new
                 {
                     tools = ToolNames,
-                    resources = new[] { "editor/state", "scene/active", "scene/hierarchy", "ui/hierarchy", "console/logs", "tests/catalog", "packages/list" },
-                    events = new[] { "scene.changed", "hierarchy.changed", "selection.changed", "component.changed", "asset.changed", "package.changed", "tests.started", "tests.completed", "console.log", "ui.focused", "ui.blurred", "ui.clicked", "ui.double_clicked", "ui.long_pressed", "ui.dragged", "ui.swiped", "input.tapped", "input.double_tapped", "input.long_pressed", "input.dragged", "input.swiped", "editor.play_mode_changed", "editor.pause_changed", "editor.refreshed", "editor.compilation_started", "editor.compiled", "menu.executed" },
+                    resources = ResourceCatalog.Select(resource => resource.Name).ToArray(),
+                    events = EventNames,
                     metadata = new Dictionary<string, string> { ["transport"] = "http", ["unity"] = Application.unityVersion },
                 });
                 return;
@@ -185,22 +170,21 @@ public static class UnityCliBridgeServer
 
             if (method == "GET" && path == "tools")
             {
-                await WriteJsonAsync(context, ToolNames.Select(name => new { name, category = name.Split('.')[0], description = $"Unity CLI tool: {name}" }));
+                await WriteJsonAsync(context, ToolCatalog.Select(tool => new
+                {
+                    name = tool.Name,
+                    category = tool.Category,
+                    description = tool.Summary,
+                    requiredArguments = tool.Args.Where(arg => arg.Required).Select(arg => arg.Name).ToArray(),
+                    optionalArguments = tool.Args.Where(arg => !arg.Required).Select(arg => arg.Name).ToArray(),
+                    arguments = tool.Args.Select(arg => new { name = arg.Name, type = arg.Type, required = arg.Required, description = arg.Description }).ToArray(),
+                }));
                 return;
             }
 
             if (method == "GET" && path == "resources")
             {
-                await WriteJsonAsync(context, new[]
-                {
-                    new { name = "editor/state", description = "Editor play/pause/selection state." },
-                    new { name = "scene/active", description = "Active scene summary." },
-                    new { name = "scene/hierarchy", description = "Scene hierarchy." },
-                    new { name = "ui/hierarchy", description = "UI hierarchy for active canvases." },
-                    new { name = "console/logs", description = "Observed console logs." },
-                    new { name = "tests/catalog", description = "Known tests." },
-                    new { name = "packages/list", description = "Installed packages." },
-                });
+                await WriteJsonAsync(context, ResourceCatalog.Select(resource => new { name = resource.Name, description = resource.Description }).ToArray());
                 return;
             }
 
@@ -215,11 +199,18 @@ public static class UnityCliBridgeServer
             if (method == "GET" && path == "events")
             {
                 var after = TryParseInt(context.Request.QueryString["after"]);
-                await WriteJsonAsync(context, new
+                object eventsPayload;
+                lock (Gate)
                 {
-                    cursor = _cursor,
-                    events = Events.Where(x => x.Cursor > after).ToArray(),
-                });
+                    eventsPayload = new
+                    {
+                        cursor = _cursor,
+                        floor = Events.Count > 0 ? Events[0].Cursor : _cursor,
+                        events = Events.Where(x => x.Cursor > after).ToArray(),
+                    };
+                }
+
+                await WriteJsonAsync(context, eventsPayload);
                 return;
             }
 
@@ -373,6 +364,8 @@ public static class UnityCliBridgeServer
                 Emit("selection.changed", $"Selected: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID() });
                 return Success(GameObjectObject(gameObject), "GameObject selected.");
             }),
+            "gameobject.find" => await OnMainThreadAsync(() => FindGameObjects(arguments)),
+            "gameobject.set-properties" => await OnMainThreadAsync(() => SetGameObjectProperties(arguments)),
             "sprite.create" => await OnMainThreadAsync(() =>
             {
                 var gameObject = CreateSprite(arguments);
@@ -406,6 +399,10 @@ public static class UnityCliBridgeServer
                 Emit("component.changed", $"Component updated: {gameObject.name}/{typeName}", null);
                 return Success(GameObjectObject(gameObject), "Component updated.");
             }),
+            "component.list" => await OnMainThreadAsync(() => ListComponents(arguments)),
+            "component.get" => await OnMainThreadAsync(() => GetComponentProperties(arguments)),
+            "component.add" => await OnMainThreadAsync(() => AddComponentTool(arguments)),
+            "component.remove" => await OnMainThreadAsync(() => RemoveComponentTool(arguments)),
             "material.create" => await OnMainThreadAsync(() =>
             {
                 var path = arguments.Value<string>("path") ?? "Assets/Materials/CliMaterial.mat";
@@ -669,11 +666,7 @@ public static class UnityCliBridgeServer
                 var result = ModifyRectTransform(arguments);
                 return Success(result, "RectTransform modified.");
             }),
-            "ui.screenshot.capture" => await OnMainThreadAsync(() =>
-            {
-                var result = CaptureScreenshot(arguments);
-                return Success(result, "Screenshot captured.");
-            }),
+            "ui.screenshot.capture" => await OnMainThreadAsync(() => Success(CaptureScreenshot(arguments), "Screenshot captured.")),
             "editor.gameview.resize" => await OnMainThreadAsync(() =>
             {
                 var result = ResizeGameView(arguments);
@@ -836,6 +829,8 @@ public static class UnityCliBridgeServer
                 return new { name = resourceName, data = new { tests = await GetTestsCatalogAsync("All") } };
             case "packages/list":
                 return await OnMainThreadAsync(() => new { name = resourceName, data = new { packages = GetInstalledPackages() } });
+            case "project/info":
+                return await OnMainThreadAsync(() => new { name = resourceName, data = ProjectInfo() });
             default:
                 return new { name = resourceName, data = (object?)null };
         }
@@ -853,6 +848,36 @@ public static class UnityCliBridgeServer
             eventSystemSelectedObjectId = currentSelected != null ? currentSelected.GetInstanceID() : 0,
             eventSystemSelectedObjectName = currentSelected != null ? currentSelected.name : string.Empty,
             activeScenePath = SceneManager.GetActiveScene().path,
+        };
+    }
+
+    private static object ProjectInfo()
+    {
+        var buildTargetGroup = BuildPipeline.GetBuildTargetGroup(EditorUserBuildSettings.activeBuildTarget);
+        var defines = string.Empty;
+        try
+        {
+            defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(buildTargetGroup);
+        }
+        catch
+        {
+            // ignore platforms that reject the query
+        }
+
+        var renderPipeline = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
+        return new
+        {
+            unityVersion = Application.unityVersion,
+            projectPath = Directory.GetCurrentDirectory(),
+            productName = Application.productName,
+            companyName = Application.companyName,
+            activeBuildTarget = EditorUserBuildSettings.activeBuildTarget.ToString(),
+            buildTargetGroup = buildTargetGroup.ToString(),
+            colorSpace = PlayerSettings.colorSpace.ToString(),
+            scriptingDefineSymbols = defines,
+            renderPipeline = renderPipeline != null ? renderPipeline.name : "Built-in",
+            isPlaying = EditorApplication.isPlaying,
+            scenesInBuild = EditorBuildSettings.scenes.Select(scene => new { path = scene.path, enabled = scene.enabled }).ToArray(),
         };
     }
 
@@ -892,6 +917,13 @@ public static class UnityCliBridgeServer
             ["parentId"] = gameObject.transform.parent != null ? gameObject.transform.parent.gameObject.GetInstanceID() : 0,
         };
 
+        result["activeInHierarchy"] = gameObject.activeInHierarchy;
+        result["tag"] = gameObject.tag;
+        result["layer"] = gameObject.layer;
+        result["layerName"] = LayerMask.LayerToName(gameObject.layer);
+        result["isStatic"] = gameObject.isStatic;
+        result["childCount"] = gameObject.transform.childCount;
+
         var rectTransform = gameObject.GetComponent<RectTransform>();
         if (rectTransform != null)
         {
@@ -903,7 +935,13 @@ public static class UnityCliBridgeServer
         if (spriteRenderer != null)
         {
             result["sprite"] = spriteRenderer.sprite != null ? spriteRenderer.sprite.name : string.Empty;
+            result["spritePath"] = spriteRenderer.sprite != null ? AssetDatabase.GetAssetPath(spriteRenderer.sprite) : string.Empty;
             result["color"] = "#" + ColorUtility.ToHtmlStringRGBA(spriteRenderer.color);
+            result["sortingLayerName"] = spriteRenderer.sortingLayerName;
+            result["sortingOrder"] = spriteRenderer.sortingOrder;
+            result["flipX"] = spriteRenderer.flipX;
+            result["flipY"] = spriteRenderer.flipY;
+            result["rendererEnabled"] = spriteRenderer.enabled;
         }
 
         return result;
@@ -958,6 +996,37 @@ public static class UnityCliBridgeServer
         }
 
         result["inputField"] = inputField;
+
+        var image = gameObject.GetComponent<Image>();
+        if (image != null)
+        {
+            result["image"] = new JObject
+            {
+                ["spritePath"] = image.sprite != null ? AssetDatabase.GetAssetPath(image.sprite) : string.Empty,
+                ["color"] = "#" + ColorUtility.ToHtmlStringRGBA(image.color),
+                ["type"] = image.type.ToString(),
+                ["fillAmount"] = image.fillAmount,
+                ["raycastTarget"] = image.raycastTarget,
+                ["enabled"] = image.enabled,
+            };
+        }
+
+        var button = gameObject.GetComponent<Button>();
+        if (button != null)
+        {
+            result["button"] = new JObject { ["interactable"] = button.interactable };
+        }
+
+        var canvasGroup = gameObject.GetComponent<CanvasGroup>();
+        if (canvasGroup != null)
+        {
+            result["canvasGroup"] = new JObject
+            {
+                ["alpha"] = canvasGroup.alpha,
+                ["interactable"] = canvasGroup.interactable,
+                ["blocksRaycasts"] = canvasGroup.blocksRaycasts,
+            };
+        }
 
         return result;
     }
@@ -2054,70 +2123,91 @@ public static class UnityCliBridgeServer
         var height = arguments["height"]?.Value<int>() ?? 1080;
         var outputPath = arguments.Value<string>("outputPath") ?? throw new InvalidOperationException("outputPath is required.");
 
-        var gameViewType = Type.GetType("UnityEditor.GameView, UnityEditor");
-        if (gameViewType == null) throw new InvalidOperationException("Cannot access GameView type.");
+        var renderTexture = new RenderTexture(width, height, 24);
+        var previousActive = RenderTexture.active;
 
-        var gameView = EditorWindow.GetWindow(gameViewType, false, null, false);
-        if (gameView == null) throw new InvalidOperationException("Cannot open GameView window.");
-
-        gameView.Focus();
-        gameView.Repaint();
-
-        var rt = new RenderTexture(width, height, 24);
-        var prev = RenderTexture.active;
-        RenderTexture.active = rt;
-
-        var cameras = Camera.allCameras;
-        if (cameras.Length > 0)
+        // Route ScreenSpaceOverlay canvases through the main camera so overlay UI is captured;
+        // SubmitRenderRequest / camera render does not composite overlay canvases on its own.
+        var overlayCanvases = UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None)
+            .Where(canvas => canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+            .ToArray();
+        var mainCamera = Camera.main;
+        if (mainCamera != null)
         {
-            foreach (var cam in cameras.OrderBy(c => c.depth))
-            {
-                cam.targetTexture = rt;
-                cam.Render();
-                cam.targetTexture = null;
-            }
-        }
-
-        var canvases = UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None);
-        foreach (var canvas in canvases)
-        {
-            if (canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+            foreach (var canvas in overlayCanvases)
             {
                 canvas.renderMode = RenderMode.ScreenSpaceCamera;
-                canvas.worldCamera = Camera.main;
-                if (Camera.main != null)
-                {
-                    Camera.main.targetTexture = rt;
-                    Camera.main.Render();
-                    Camera.main.targetTexture = null;
-                }
-                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                canvas.worldCamera = null;
+                canvas.worldCamera = mainCamera;
             }
         }
 
-        var tex = new Texture2D(width, height, TextureFormat.RGB24, false);
-        tex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
-        tex.Apply();
-        RenderTexture.active = prev;
-        UnityEngine.Object.DestroyImmediate(rt);
+        try
+        {
+            RenderTexture.active = renderTexture;
+            GL.Clear(true, true, Color.clear);
 
-        var dir = Path.GetDirectoryName(outputPath);
-        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
+            foreach (var camera in Camera.allCameras.OrderBy(cameraItem => cameraItem.depth))
+            {
+                RenderCameraToTexture(camera, renderTexture);
+            }
 
-        var bytes = tex.EncodeToPNG();
-        File.WriteAllBytes(outputPath, bytes);
-        UnityEngine.Object.DestroyImmediate(tex);
+            RenderTexture.active = renderTexture;
+            var texture = new Texture2D(width, height, TextureFormat.RGB24, false);
+            texture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+            texture.Apply();
 
-        AssetDatabase.Refresh();
+            var directory = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.WriteAllBytes(outputPath, texture.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(texture);
+        }
+        finally
+        {
+            RenderTexture.active = previousActive;
+            UnityEngine.Object.DestroyImmediate(renderTexture);
+            if (mainCamera != null)
+            {
+                foreach (var canvas in overlayCanvases)
+                {
+                    canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                    canvas.worldCamera = null;
+                }
+            }
+        }
+
+        if (outputPath.Replace('\\', '/').StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
+        {
+            AssetDatabase.Refresh();
+        }
 
         return new JObject
         {
             ["outputPath"] = outputPath,
             ["width"] = width,
             ["height"] = height,
+            ["mode"] = "renderRequest",
         };
+    }
+
+    private static void RenderCameraToTexture(Camera camera, RenderTexture renderTexture)
+    {
+        // URP/HDRP-correct on-demand render. The legacy camera.Render() path returns black
+        // under a Scriptable Render Pipeline, so prefer SubmitRenderRequest when supported.
+        var request = new UnityEngine.Rendering.RenderPipeline.StandardRequest { destination = renderTexture };
+        if (UnityEngine.Rendering.RenderPipeline.SupportsRenderRequest(camera, request))
+        {
+            UnityEngine.Rendering.RenderPipeline.SubmitRenderRequest(camera, request);
+            return;
+        }
+
+        var previousTarget = camera.targetTexture;
+        camera.targetTexture = renderTexture;
+        camera.Render();
+        camera.targetTexture = previousTarget;
     }
 
     private static JObject ResizeGameView(JObject arguments)
@@ -2964,6 +3054,8 @@ public static class UnityCliBridgeServer
         Emit("console.log", condition, new JObject { ["level"] = type.ToString(), ["stackTrace"] = stackTrace });
     }
 
+    private const int MaxRetainedEvents = 5000;
+
     private static void Emit(string type, string message, JObject? data)
     {
         lock (Gate)
@@ -2977,6 +3069,13 @@ public static class UnityCliBridgeServer
                 Timestamp = DateTimeOffset.UtcNow,
                 Data = data,
             });
+
+            // Bounded ring buffer: cursor stays monotonic so /events?after= remains correct;
+            // the /events 'floor' field lets a client detect it requested a pruned range.
+            if (Events.Count > MaxRetainedEvents)
+            {
+                Events.RemoveRange(0, Events.Count - MaxRetainedEvents);
+            }
         }
     }
 

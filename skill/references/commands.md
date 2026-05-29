@@ -31,13 +31,24 @@ unity-cli scene delete path=Assets/Scenes/Old.unity
 | `gameobject scale` | | `id`, `name`, `scale` | 스케일 |
 | `gameobject set-transform` | | `id`, `name`, `position`, `rotation`, `scale` | 전체 변환 |
 | `gameobject select` | | `id`, `name` | 선택 |
+| `gameobject find` | | `tag`, `layer`, `component`, `nameContains`, `path`, `activeOnly`, `includeInactive`, `limit` | 필터 검색 (비활성/풀링 오브젝트 포함) |
+| `gameobject set-properties` | | `id`, `name`, `active`, `tag`, `layer`, `static`, `newName`, `recursiveLayer` | 오브젝트 속성 일괄 변경 |
+
+`gameobject find`의 모든 필터는 선택이며 AND로 결합된다. `layer`는 이름 또는 int, `component`는 타입 이름, `path`는 계층 경로 접미사 매칭(세그먼트별 `*` 와일드카드)이다. `activeOnly`는 bool(기본 `false`), `includeInactive`는 bool(기본 `true`), `limit`는 int(기본 `200`). 응답은 `{count,truncated,items:[...]}` 형태로 비활성/풀링된 오브젝트도 포함한다.
+
+`gameobject set-properties`의 `tag`/`layer`는 검증되며 정의되지 않은 값이면 에러를 반환한다. `layer`는 이름 또는 int, `active`/`static`/`recursiveLayer`는 bool(기본 `false`), `recursiveLayer=false`면 layer를 자식까지 적용한다. 응답은 `{applied:[],gameObject}` 형태다.
 
 ```bash
 unity-cli gameobject create name=Player primitive=Capsule position=0,1,0
 unity-cli gameobject move name=Player position=5,1,3
 unity-cli gameobject set-transform name=Player position=3,4,5 rotation=0,90,0 scale=1,2,1
+unity-cli gameobject find component=Camera
+unity-cli gameobject find tag=Enemy nameContains=Goblin
+unity-cli gameobject set-properties name=Enemy active=false tag=Enemy layer=Default
 unity-cli gameobject delete name=Player
 ```
+
+`gameobject get`/`find` 등의 직렬화 결과에는 `tag`, `layer`, `layerName`, `isStatic`, `activeInHierarchy`, `childCount`가 포함된다. SpriteRenderer 오브젝트는 `spritePath`, `sortingLayerName`, `sortingOrder`, `flipX`, `flipY`를, UI 오브젝트는 `image`/`button`/`canvasGroup` 하위 오브젝트(`CanvasGroup.alpha`, `button.interactable`, `image.fillAmount`로 팝업 가시성 검증)를 추가로 노출한다.
 
 ## Sprite 명령
 
@@ -53,10 +64,34 @@ unity-cli sprite create name=MySprite position=2,1,0 color=#FF8A00FF
 
 | 명령 | 필수 인자 | 선택 인자 | 설명 |
 |------|-----------|-----------|------|
+| `component list` | `id` 또는 `name` | `includeValues` | GameObject의 모든 컴포넌트 목록 (missing script는 `<missing>`로 노출) |
+| `component get` | `type` + (`id` 또는 `name`) | | 컴포넌트의 직렬화 프로퍼티 조회 (`[SerializeField] private` 포함) |
+| `component add` | `type` + (`id` 또는 `name`) | `values`, `allowDuplicate` | 컴포넌트 추가 후 값 적용 |
 | `component update` | `type` | `id`, `name`, `values` | 컴포넌트 갱신 |
+| `component remove` | `type` + (`id` 또는 `name`) | `index` | 컴포넌트 제거 (Transform/RectTransform 제거 거부) |
+
+`component list`의 `includeValues`는 bool(기본 `false`)이며, `true`면 각 컴포넌트의 `properties`도 함께 반환한다. 응답은 `{id,name,count,components:[{type,fullType,enabled,instanceId,properties?}]}` 형태다.
+
+`component get`/`component add`/`component remove`의 `type`은 짧은 이름(`Camera`, `Rigidbody2D`)과 전체 이름을 모두 해석한다.
+
+`component get` 응답은 `{id,name,type,fullType,properties:{path:value}}` 형태이며 값은 SerializedObject 기준으로 인코딩된다.
+- enum: `{enumValue,enumName}`
+- color: `#hex`
+- vector: 배열
+- object reference: `{objectName,objectType,assetPath,instanceId}`
+- array: `{isArray,length}`
+- 미지원 타입: `{unsupported,propertyType}`
+
+`component add`의 `values`는 `member=value` JSON 오브젝트이며, 응답은 `{id,name,type,applied:[],skipped:[{name,reason}]}` 형태다. 같은 컴포넌트가 이미 있으면(`allowDuplicate=false`일 때) 또는 Component 타입이 아니면 실패한다. `allowDuplicate`는 bool(기본 `false`).
+
+`component remove`의 `index`는 int(기본 `0`)로 동일 타입이 여러 개일 때 대상을 지정한다. 응답은 `{id,name,removed,type,index}` 형태다.
 
 ```bash
+unity-cli component list name=Player includeValues=true
+unity-cli component get name=Player type=Camera
+unity-cli component add name=Player type=Rigidbody2D values={"gravityScale":2}
 unity-cli component update name=Player type=Rigidbody
+unity-cli component remove name=Player type=BoxCollider2D index=0
 ```
 
 ## Material 명령
@@ -179,7 +214,9 @@ unity-cli console clear
 
 | 명령 | 필수 인자 | 선택 인자 | 설명 |
 |------|-----------|-----------|------|
-| `ui screenshot.capture` | `outputPath` | `width`, `height` | Game View 캡처 후 PNG 저장 |
+| `ui screenshot.capture` | `outputPath` | `width`, `height`, `source` | Game/Scene View 캡처 후 PNG 저장 |
+
+`source`는 `game`(기본) 또는 `scene`이다. 캡처는 URP/SRP 호환 `RenderPipeline.SubmitRenderRequest`를 사용하므로 에디터 윈도우 포커스와 무관하게 동작하며, URP에서도 검은 프레임이 나오지 않는다. 응답에는 사용된 `mode` 필드가 포함된다.
 
 ### 상태 변경
 
@@ -212,6 +249,7 @@ unity-cli ui inputfield.create canvasName=MyCanvas name=MyInput placeholder="Typ
 unity-cli ui layout.add name=Header layoutType=Horizontal spacing=16 childAlignment=MiddleCenter paddingLeft=24 paddingRight=24
 unity-cli ui recttransform.modify name=Header anchoredPosition=0,-10 size=0,200
 unity-cli ui screenshot.capture outputPath=Assets/Screenshots/capture.png width=1440 height=3040
+unity-cli ui screenshot.capture outputPath=Assets/Screenshots/scene.png source=scene
 unity-cli ui click name=Btn pointerId=21
 unity-cli ui focus name=MyInput
 unity-cli ui blur
@@ -284,11 +322,15 @@ unity-cli editor gameview.resize width=1440 height=3040
 | `console/logs` | 콘솔 로그 |
 | `tests/catalog` | 등록된 테스트 목록 |
 | `packages/list` | 설치된 패키지 목록 |
+| `project/info` | 프로젝트/빌드 설정 정보 |
+
+`project/info`는 `{unityVersion, projectPath, productName, companyName, activeBuildTarget, buildTargetGroup, colorSpace, scriptingDefineSymbols, renderPipeline (URP/Built-in 감지), isPlaying, scenesInBuild:[{path,enabled}]}`를 반환한다.
 
 ```bash
 unity-cli resource get editor/state
 unity-cli resource get scene/hierarchy
 unity-cli resource get ui/hierarchy
+unity-cli resource get project/info
 ```
 
 ## Event 타입
@@ -297,7 +339,10 @@ unity-cli resource get ui/hierarchy
 |--------|------|
 | `bridge.started` | 브리지 시작 |
 | `scene.changed` | 씬 생성/삭제 |
+| `scene.loaded` | 씬 로드 |
+| `scene.saved` | 씬 저장 |
 | `hierarchy.changed` | 게임오브젝트 변경 |
+| `transform.changed` | Transform 변경 |
 | `console.log` | 콘솔 로그 발행 |
 | `tests.started` / `tests.completed` | 테스트 시작/완료 |
 | `editor.compiled` | 컴파일 완료 |
@@ -305,3 +350,5 @@ unity-cli resource get ui/hierarchy
 | `ui.focused` / `ui.blurred` | UI 포커스 변경 |
 | `ui.double_clicked` / `ui.long_pressed` / `ui.swiped` | UI 입력 이벤트 |
 | `input.double_tapped` / `input.long_pressed` / `input.swiped` | 월드 입력 이벤트 |
+
+위 이벤트 타입은 `capabilities`에도 모두 광고된다(`bridge.started`, `scene.loaded`, `scene.saved`, `transform.changed` 포함). 브리지는 최대 5000개의 이벤트 링 버퍼를 유지하며, `events` 폴 응답의 `floor`(최저 보존 커서) 필드로 잘린 구간을 감지할 수 있다.

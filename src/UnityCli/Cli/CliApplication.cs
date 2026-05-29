@@ -48,6 +48,8 @@ public sealed class CliApplication
                     return await PrintStatusAsync(client, options.Json, cancellationToken);
                 case "capabilities":
                     return await PrintCapabilitiesAsync(client, options.Json, cancellationToken);
+                case "doctor":
+                    return await RunDoctorAsync(client, options, cancellationToken);
                 case "events":
                     return await RunEventsAsync(client, options, command.Skip(1).ToArray(), cancellationToken);
                 case "workflow":
@@ -57,7 +59,7 @@ public sealed class CliApplication
                 case "tool":
                     return await RunToolAsync(client, options, command.Skip(1).ToArray(), cancellationToken);
                 case "resource":
-                    return await RunResourceAsync(client, command.Skip(1).ToArray(), options.Json, cancellationToken);
+                    return await RunResourceAsync(client, options, command.Skip(1).ToArray(), cancellationToken);
                 default:
                     return await RunMappedToolCommandAsync(client, options, command, cancellationToken);
             }
@@ -145,6 +147,84 @@ public sealed class CliApplication
         return 0;
     }
 
+    private const string ExpectedBridgeVersion = "0.1.0";
+
+    private sealed record DoctorCheck(string Check, string Status, string Detail);
+
+    private async Task<int> RunDoctorAsync(BridgeClient client, GlobalOptions options, CancellationToken cancellationToken)
+    {
+        var checks = new List<DoctorCheck>();
+
+        BridgeStatus status;
+        try
+        {
+            status = await client.GetStatusAsync(cancellationToken);
+            checks.Add(new DoctorCheck("bridge.reachable", "PASS", $"{status.Name} v{status.Version}, editor {status.EditorVersion}, project {status.ProjectPath}"));
+        }
+        catch (Exception exception)
+        {
+            checks.Add(new DoctorCheck("bridge.reachable", "FAIL", exception.Message));
+            return PrintDoctor(checks, options);
+        }
+
+        CapabilityResponse capabilities;
+        try
+        {
+            capabilities = await client.GetCapabilitiesAsync(cancellationToken);
+            checks.Add(new DoctorCheck("capabilities", "PASS", $"{capabilities.Tools.Count} tools, {capabilities.Resources.Count} resources, {capabilities.Events.Count} events"));
+        }
+        catch (Exception exception)
+        {
+            checks.Add(new DoctorCheck("capabilities", "FAIL", exception.Message));
+            return PrintDoctor(checks, options);
+        }
+
+        try
+        {
+            var tools = await client.ListToolsAsync(cancellationToken);
+            var toolNames = tools.Select(tool => tool.Name).OrderBy(name => name).ToArray();
+            var capabilityTools = capabilities.Tools.OrderBy(name => name).ToArray();
+            var onlyInCapabilities = capabilityTools.Except(toolNames).ToArray();
+            var onlyInTools = toolNames.Except(capabilityTools).ToArray();
+            checks.Add(onlyInCapabilities.Length == 0 && onlyInTools.Length == 0
+                ? new DoctorCheck("tools.parity", "PASS", $"{toolNames.Length} tools consistent between /tools and /capabilities")
+                : new DoctorCheck("tools.parity", "FAIL", $"capabilities-only: [{string.Join(", ", onlyInCapabilities)}]; tools-only: [{string.Join(", ", onlyInTools)}]"));
+        }
+        catch (Exception exception)
+        {
+            checks.Add(new DoctorCheck("tools.parity", "WARN", exception.Message));
+        }
+
+        var requiredEvents = new[] { "bridge.started", "console.log", "hierarchy.changed", "scene.loaded", "scene.saved", "transform.changed", "tests.completed", "editor.compiled" };
+        var missingEvents = requiredEvents.Where(name => !capabilities.Events.Contains(name)).ToArray();
+        checks.Add(missingEvents.Length == 0
+            ? new DoctorCheck("events.contract", "PASS", $"all {requiredEvents.Length} CLI-required events advertised")
+            : new DoctorCheck("events.contract", "FAIL", $"missing from capabilities: [{string.Join(", ", missingEvents)}]"));
+
+        checks.Add(status.Version == ExpectedBridgeVersion
+            ? new DoctorCheck("version", "PASS", $"bridge {status.Version} matches CLI-expected {ExpectedBridgeVersion}")
+            : new DoctorCheck("version", "WARN", $"bridge {status.Version} != CLI-expected {ExpectedBridgeVersion}"));
+
+        return PrintDoctor(checks, options);
+    }
+
+    private int PrintDoctor(List<DoctorCheck> checks, GlobalOptions options)
+    {
+        if (options.Json)
+        {
+            _console.WriteLine(JsonHelpers.ToPrettyJson(checks));
+        }
+        else if (!options.Quiet)
+        {
+            foreach (var check in checks)
+            {
+                _console.WriteLine($"[{check.Status}] {check.Check}: {check.Detail}");
+            }
+        }
+
+        return checks.Any(check => check.Status == "FAIL") ? 1 : 0;
+    }
+
     private async Task<int> RunEventsAsync(BridgeClient client, GlobalOptions options, string[] args, CancellationToken cancellationToken)
     {
         if (args.Length == 0 || args[0] != "tail")
@@ -214,7 +294,10 @@ public sealed class CliApplication
             {
                 foreach (var tool in tools)
                 {
-                    _console.WriteLine($"{tool.Name} :: {tool.Description}");
+                    var required = tool.RequiredArguments.Count > 0
+                        ? $"  (required: {string.Join(", ", tool.RequiredArguments)})"
+                        : string.Empty;
+                    _console.WriteLine($"{tool.Name} :: {tool.Description}{required}");
                 }
             }
 
@@ -241,15 +324,14 @@ public sealed class CliApplication
             }
 
             var response = await client.CallToolAsync(toolName, arguments, cancellationToken);
-            _console.WriteLine(JsonHelpers.ToPrettyJson(response));
-            return response.Success ? 0 : 1;
+            return EmitResponse(response, response.Success, options);
         }
 
         _console.ErrorLine("Usage: unity-cli tool list | tool call <name> [key=value...]");
         return 1;
     }
 
-    private async Task<int> RunResourceAsync(BridgeClient client, string[] args, bool json, CancellationToken cancellationToken)
+    private async Task<int> RunResourceAsync(BridgeClient client, GlobalOptions options, string[] args, CancellationToken cancellationToken)
     {
         if (args.Length == 0)
         {
@@ -260,19 +342,41 @@ public sealed class CliApplication
         if (args[0] == "list")
         {
             var resources = await client.ListResourcesAsync(cancellationToken);
-            _console.WriteLine(JsonHelpers.ToPrettyJson(resources));
-            return 0;
+            return EmitResponse(resources, true, options);
         }
 
         if (args.Length >= 2 && args[0] == "get")
         {
             var response = await client.GetResourceAsync(args[1], cancellationToken);
-            _console.WriteLine(JsonHelpers.ToPrettyJson(response));
-            return 0;
+            return EmitResponse(response, true, options);
         }
 
         _console.ErrorLine("Usage: unity-cli resource list | resource get <name>");
         return 1;
+    }
+
+    private int EmitResponse(object payload, bool success, GlobalOptions options)
+    {
+        if (!string.IsNullOrEmpty(options.Field))
+        {
+            var node = JsonSerializer.SerializeToNode(payload, JsonHelpers.SerializerOptions);
+            var scalar = JsonPathResolver.ResolveToScalar(node, options.Field!);
+            if (scalar is null)
+            {
+                _console.ErrorLine($"Field not found: {options.Field}");
+                return 2;
+            }
+
+            _console.WriteLine(scalar);
+            return success ? 0 : 1;
+        }
+
+        if (!options.Quiet)
+        {
+            _console.WriteLine(JsonHelpers.ToPrettyJson(payload));
+        }
+
+        return success ? 0 : 1;
     }
 
     private async Task<int> RunMappedToolCommandAsync(BridgeClient client, GlobalOptions options, IReadOnlyList<string> args, CancellationToken cancellationToken)
@@ -301,8 +405,7 @@ public sealed class CliApplication
         }
 
         var response = await client.CallToolAsync(toolName, parameters, cancellationToken);
-        _console.WriteLine(JsonHelpers.ToPrettyJson(response));
-        return response.Success ? 0 : 1;
+        return EmitResponse(response, response.Success, options);
     }
 
     private async Task<int> RunTestsCommandAsync(BridgeClient client, GlobalOptions options, JsonObject arguments, CancellationToken cancellationToken)
@@ -512,6 +615,7 @@ public sealed class CliApplication
         _console.WriteLine("unity-cli");
         _console.WriteLine("  status");
         _console.WriteLine("  capabilities");
+        _console.WriteLine("  doctor");
         _console.WriteLine("  tool list");
         _console.WriteLine("  tool call <tool> [key=value...]");
         _console.WriteLine("  resource list");
@@ -522,7 +626,7 @@ public sealed class CliApplication
         _console.WriteLine("  mock serve [host=127.0.0.1] [port=52737]");
         _console.WriteLine("  scene|gameobject|component|material|asset|package|tests|console|menu|editor <action> [key=value...]");
         _console.WriteLine("global options:");
-        _console.WriteLine("  --base-url=<url>  --json  --timeout-ms=<milliseconds>");
+        _console.WriteLine("  --base-url=<url>  --json  --quiet  --field=<jsonpath>  --timeout-ms=<milliseconds>");
     }
 
     private static GlobalOptions ParseGlobalOptions(string[] args)
@@ -547,6 +651,14 @@ public sealed class CliApplication
             {
                 options.Json = true;
             }
+            else if (arg == "--quiet")
+            {
+                options.Quiet = true;
+            }
+            else if (arg.StartsWith("--field=", StringComparison.OrdinalIgnoreCase))
+            {
+                options.Field = arg["--field=".Length..];
+            }
             else
             {
                 remaining.Add(arg);
@@ -564,6 +676,10 @@ public sealed class CliApplication
         public int TimeoutMs { get; set; } = 10000;
 
         public bool Json { get; set; }
+
+        public string? Field { get; set; }
+
+        public bool Quiet { get; set; }
 
         public List<string> RemainingArgs { get; set; } = [];
     }
