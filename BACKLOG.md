@@ -15,6 +15,15 @@ Tier 2(T2-1~T2-9) + Tier 3(T3-1~T3-5) **전 항목 구현 완료**. `dotnet test
 - CLI 측 변경은 `dotnet test UnityCli.slnx`로 즉시 회귀(연결자/실에디터 불필요), mock 핸들러도 같이 추가.
 - 공유 자산: `JsonPathResolver`(이미 구현, `--field`/assert가 재사용), `ResolveComponentType`(짧은/전체 타입명 해석), SerializedProperty read/write 매퍼(`ReadSerializedProperty`/`TryWriteSerializedProperty`).
 
+## 구현 현황 (2026-07-05) — 씬/월드 오소링 완전화
+
+백로그에 없던 씬/월드 오소링 스펙을 추가 구현(신규 항목이라 기존 T2/T3에 대응 없음).
+
+- **신규 도구 7개**: `project.add-tag`, `project.add-layer`, `project.list-tags-layers`, `asset.set-addressable`, `asset.remove-addressable`, `scene.set-lighting`, `scene.bake-navmesh`. 각기 `UnityCliBridge.Environment.cs` 핸들러 + `ExecuteToolAsync` switch arm + `ToolCatalog` 항목 + mock 핸들러/`ToolDescriptor` + `.NET` 통합테스트(`SceneAuthoringIntegrationTests`). Addressables는 리플렉션 접근(패키지 부재 시 안전 Failure).
+- **공유 매퍼 강화**: `TryWriteSerializedProperty`/`ReadSerializedProperty`를 완전 재귀 writer/reader로 확장 — 배열/리스트, 중첩 Generic struct, ObjectReference(에셋 `{"__asset":...}`/문자열 경로, 씬 `{"__ref":"name|path|id:..."}`, `null`/`{"__null":true}` 클리어), 신규 스칼라(Vector4/Quaternion(euler 3 또는 4)/Rect/Bounds/Vector2Int/Vector3Int). 단일 소스라 `component.add`/`component.update`/`asset.create-scriptableobject`가 함께 강화되고, 쓴 값이 `component.get`/`scriptableobject.get`으로 되읽힌다.
+- **범위 밖(우회)**: 라이트맵/오클루전 베이크, Terrain 오소링 -> 프로젝트측 `MenuItem` + `menu execute`.
+- **검증**: `dotnet test`(mock) 통과. connector 런타임/컴파일 검증은 Unity 도메인 리로드에서 운영자 수행 필요(README "실제 Editor에서 확인됨"에는 실 Editor 확인 후 추가).
+
 ---
 
 ## Tier 2 — 정확성/견고성/콘텐츠 (다음 우선)

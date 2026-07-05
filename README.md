@@ -1,6 +1,6 @@
 # unity-cli
 
-Unity Editor를 HTTP 브리지로 노출하고, `scene`, `gameobject`, `sprite`, `ui`, `input`, `asset`, `material`, `package`, `tests`, `console`, `menu`, `editor`, `resource`, `events`, `workflow`를 CLI만으로 제어할 수 있게 만드는 프로젝트입니다.
+Unity Editor를 HTTP 브리지로 노출하고, `scene`, `gameobject`, `sprite`, `ui`, `input`, `asset`, `material`, `package`, `project`, `tests`, `console`, `menu`, `editor`, `resource`, `events`, `workflow`를 CLI만으로 제어할 수 있게 만드는 프로젝트입니다.
 
 현재 기준은 "실제 Unity Editor에 붙어서 동작하는가" 입니다. `mock serve`와 `tests/UnityCli.Tests`는 CLI 프로토콜 회귀 확인용 보조 수단으로만 유지합니다.
 
@@ -17,13 +17,14 @@ Unity Editor를 HTTP 브리지로 노출하고, `scene`, `gameobject`, `sprite`,
 
 직접 매핑되는 그룹 명령:
 
-- `scene create|load|save|info|delete|unload`
+- `scene create|load|save|info|delete|unload|set-lighting|bake-navmesh`
 - `gameobject create|get|delete|duplicate|reparent|move|rotate|scale|set-transform|select|find|set-properties`
 - `sprite create`
 - `component list|get|add|update|remove`
 - `material create|assign|modify|info`
-- `asset list|add-to-scene`
+- `asset list|add-to-scene|set-addressable|remove-addressable`
 - `package list|add`
+- `project add-tag|add-layer|list-tags-layers`
 - `tests list|run`
 - `console get|clear|send`
 - `ui canvas.create|button.create|toggle.create|slider.create|scrollrect.create|inputfield.create|text.create|image.create`
@@ -122,6 +123,10 @@ CLI는 `--base-url`이 없으면 이 `instances.json`의 `default.baseUrl`을 �
 - 콘솔 로그 발행/조회/초기화
 - 메뉴 실행, Play/Pause/Refresh/Compile 제어
 - 프로젝트/빌드 설정 조회 (`resource get project/info`)
+- 태그/레이어 추가 및 조회 (`project add-tag|add-layer|list-tags-layers`)
+- Addressable 엔트리 설정/제거 (`asset set-addressable|remove-addressable`)
+- 씬 라이팅(앰비언트/포그/스카이박스) 설정과 NavMesh 베이크 (`scene set-lighting|bake-navmesh`)
+- 컴포넌트/ScriptableObject `values`에 배열/중첩 struct/씬 오브젝트 참조(`__ref`)/에셋 참조(`__asset`) 주입
 - 브리지<->CLI 계약 자가 점검 (`doctor`)
 
 ## 실제 Editor 검증 예시
@@ -216,6 +221,11 @@ scripts/verify-editor.sh --stage ui-input --report reports/verify-editor/ui-inpu
   - 컴파일·광고 확인(쓰기형이라 실 프로젝트 미실행, `dotnet test` mock 통합테스트로 검증): `prefab.create`/`prefab.instantiate`/`prefab.apply`/`prefab.unpack`, `asset.manage`, `asset.create-scriptableobject`, `sprite.set`, `scene.open-additive`/`scene.set-active`, `scene.unload path=`
   - 신규 리소스: `resource get tests/last-run`, `resource get addressables/list`
   - 계약: 통일 오류 봉투(`code`) + 종료코드 0/1/2/3 + `--strict`, `tests.run`에 `category=`/`regex=` 필터, 워크플로우 `assert`/`capture`/`waitFor`(resource)/`retry`/조건부 skip
+
+- 씬/월드 오소링 추가분 (2026-07-05, `dotnet test` mock 통합테스트로 검증, 실 Editor 확인 전이라 위 "실제 Editor에서 확인됨"에는 아직 미포함):
+  - 신규 도구: `project.add-tag`/`project.add-layer`/`project.list-tags-layers`, `asset.set-addressable`/`asset.remove-addressable`, `scene.set-lighting`, `scene.bake-navmesh`
+  - 공유 `values` 매퍼 강화: 배열(`[...]`)/중첩 struct(`{...}`)/씬 오브젝트 참조(`{"__ref":"name:Foo"}`, path/id 선택자 포함)/에셋 참조(`{"__asset":"Assets/..."}`)/null 클리어/신규 타입(Vector4·Quaternion(euler 3 또는 4)·Rect·Bounds·Vector2Int·Vector3Int)까지 재귀 기록·읽기. `component.add`/`component.update`/`asset.create-scriptableobject`가 함께 강화됨
+  - 라이트맵/오클루전 베이크와 Terrain 오소링은 범위 밖 -> 프로젝트 `MenuItem` + `menu execute` 우회
 
 - `ui-input` stage에서 현재 실제 검증하는 UI 상태:
   - Button `double-click`, `long-press`, `swipe`

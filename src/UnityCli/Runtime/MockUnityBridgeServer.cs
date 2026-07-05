@@ -215,6 +215,8 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             "scene.open-additive" => Success("Scene opened additively.", OpenSceneAdditive(args)),
             "scene.set-active" => Success("Active scene set.", SetActiveScene(args)),
             "scene.list-loaded" => Success("Loaded scenes listed.", ListLoadedScenes()),
+            "scene.set-lighting" => Success("Scene lighting set.", SetSceneLighting(args)),
+            "scene.bake-navmesh" => Success("NavMesh baked.", BakeNavMesh()),
             "gameobject.create" => Success("GameObject created.", CreateGameObject(args)),
             "gameobject.get" => Success("GameObject fetched.", GetGameObject(args)),
             "gameobject.delete" => Success("GameObject deleted.", DeleteGameObject(args)),
@@ -238,6 +240,8 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             "material.info" => Success("Material info fetched.", MaterialInfo(args)),
             "asset.list" => Success("Assets listed.", ListAssets(args)),
             "asset.add-to-scene" => Success("Asset added to scene.", AddAssetToScene(args)),
+            "asset.set-addressable" => Success("Addressable set.", SetAddressable(args)),
+            "asset.remove-addressable" => Success("Addressable removed.", RemoveAddressable(args)),
             "package.list" => Success("Packages listed.", ListPackages()),
             "package.add" => await AddPackageAsync(args, cancellationToken),
             "tests.list" => Success("Tests listed.", ListTests(args)),
@@ -247,6 +251,9 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             "console.send" => Success("Log emitted.", EmitConsoleLog(args)),
             "console.logs" => Success("Console logs queried.", QueryConsoleLogs(args)),
             "menu.execute" => Success("Menu command executed.", ExecuteMenu(args)),
+            "project.add-tag" => Success("Tag added.", AddProjectTag(args)),
+            "project.add-layer" => Success("Layer added.", AddProjectLayer(args)),
+            "project.list-tags-layers" => Success("Tags and layers listed.", ListTagsAndLayers()),
             "sprite.create" => Success("Sprite created.", CreateSprite(args)),
             "sprite.set" => Success("SpriteRenderer updated.", SetSpriteRenderer(args)),
             "ui.canvas.create" => Success("Canvas created.", CreateUiElement(args, "Canvas")),
@@ -1637,6 +1644,97 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         };
     }
 
+    /// <summary>project.add-tag 를 모사한다. 태그 추가를 멱등한 성공으로 보고한다.</summary>
+    /// <param name="args">tag 인자를 담은 JSON 오브젝트.</param>
+    /// <returns>tag 와 added 플래그를 담은 JSON 오브젝트.</returns>
+    private JsonNode AddProjectTag(JsonObject args)
+    {
+        var tag = GetString(args, "tag", "Untagged");
+        Emit("asset.changed", $"Tag added: {tag}", new JsonObject { ["path"] = "ProjectSettings/TagManager.asset", ["tag"] = tag });
+        return new JsonObject { ["tag"] = tag, ["added"] = true };
+    }
+
+    /// <summary>project.add-layer 를 모사한다. 사용자 레이어 슬롯 배정을 성공으로 보고한다.</summary>
+    /// <param name="args">layer 및 선택적 index 인자를 담은 JSON 오브젝트.</param>
+    /// <returns>layer/index/added 를 담은 JSON 오브젝트.</returns>
+    private JsonNode AddProjectLayer(JsonObject args)
+    {
+        var layer = GetString(args, "layer", "UserLayer");
+        var index = (int)(args["index"]?.GetValue<long>() ?? 8);
+        Emit("asset.changed", $"Layer added: {layer}", new JsonObject { ["path"] = "ProjectSettings/TagManager.asset", ["layer"] = layer, ["index"] = index });
+        return new JsonObject { ["layer"] = layer, ["index"] = index, ["added"] = true };
+    }
+
+    /// <summary>project.list-tags-layers 를 모사한다. 결정론적 태그/레이어 목록을 반환한다.</summary>
+    /// <returns>tags 배열과 layers 배열을 담은 JSON 오브젝트.</returns>
+    private JsonNode ListTagsAndLayers()
+    {
+        return new JsonObject
+        {
+            ["tags"] = new JsonArray(
+                JsonValue.Create("Untagged"),
+                JsonValue.Create("Player"),
+                JsonValue.Create("MainCamera")),
+            ["layers"] = new JsonArray(
+                new JsonObject { ["index"] = 0, ["name"] = "Default" },
+                new JsonObject { ["index"] = 5, ["name"] = "UI" }),
+        };
+    }
+
+    /// <summary>asset.set-addressable 를 모사한다. 엔트리 생성/이동을 성공으로 보고한다.</summary>
+    /// <param name="args">path 및 선택적 address/group 인자를 담은 JSON 오브젝트.</param>
+    /// <returns>path/guid/address/group 을 담은 JSON 오브젝트.</returns>
+    private JsonNode SetAddressable(JsonObject args)
+    {
+        var path = GetString(args, "path", "Assets/Mock/Asset.prefab");
+        var address = GetNullableString(args, "address") ?? path;
+        var group = GetNullableString(args, "group") ?? "Default Local Group";
+        Emit("asset.changed", $"Addressable set: {path}", new JsonObject { ["path"] = path, ["address"] = address, ["group"] = group });
+        return new JsonObject { ["path"] = path, ["guid"] = "mock", ["address"] = address, ["group"] = group };
+    }
+
+    /// <summary>asset.remove-addressable 을 모사한다. 엔트리 제거를 성공으로 보고한다.</summary>
+    /// <param name="args">path 인자를 담은 JSON 오브젝트.</param>
+    /// <returns>path 와 removed 플래그를 담은 JSON 오브젝트.</returns>
+    private JsonNode RemoveAddressable(JsonObject args)
+    {
+        var path = GetString(args, "path", "Assets/Mock/Asset.prefab");
+        Emit("asset.changed", $"Addressable removed: {path}", new JsonObject { ["path"] = path, ["action"] = "remove-addressable" });
+        return new JsonObject { ["path"] = path, ["removed"] = true };
+    }
+
+    /// <summary>scene.set-lighting 을 모사한다. 제공된 조명 키만 applied 로 반환한다.</summary>
+    /// <param name="args">조명/안개/스카이박스 관련 선택적 인자를 담은 JSON 오브젝트.</param>
+    /// <returns>applied 배열을 담은 JSON 오브젝트.</returns>
+    private JsonNode SetSceneLighting(JsonObject args)
+    {
+        string[] lightingKeys =
+        [
+            "ambientMode", "ambientColor", "ambientIntensity", "ambientSkyColor",
+            "ambientEquatorColor", "ambientGroundColor", "fog", "fogColor", "fogMode",
+            "fogDensity", "fogStartDistance", "fogEndDistance", "skyboxMaterial",
+        ];
+        var applied = new JsonArray();
+        foreach (var key in lightingKeys)
+        {
+            if (args.ContainsKey(key))
+            {
+                applied.Add(JsonValue.Create(key));
+            }
+        }
+
+        Emit("scene.changed", "Scene lighting set.", new JsonObject { ["path"] = _activeScenePath, ["action"] = "set-lighting" });
+        return new JsonObject { ["applied"] = applied };
+    }
+
+    /// <summary>scene.bake-navmesh 를 모사한다. NavMesh 베이크 완료를 보고한다.</summary>
+    /// <returns>baked 플래그를 담은 JSON 오브젝트.</returns>
+    private JsonNode BakeNavMesh()
+    {
+        Emit("scene.changed", "NavMesh baked.", new JsonObject { ["path"] = _activeScenePath, ["action"] = "bake-navmesh" });
+        return new JsonObject { ["baked"] = true };
+    }
+
     /// <summary>asset.manage 도구의 테스트 더블로 op 값에 따라 결정론적 응답을 반환한다.</summary>
     /// <param name="args">op 및 작업별 인자를 담은 JSON 오브젝트.</param>
     /// <returns>커넥터와 동일한 성공/실패 메시지를 담은 <see cref="ToolCallResponse"/>.</returns>
@@ -1789,6 +1887,8 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ToolDescriptor("scene.open-additive", "scene", "Open a scene additively.", ["path"], []),
             new ToolDescriptor("scene.set-active", "scene", "Set the active scene.", ["path"], []),
             new ToolDescriptor("scene.list-loaded", "scene", "List loaded scenes.", [], []),
+            new ToolDescriptor("scene.set-lighting", "scene", "Configure scene lighting, fog and skybox.", [], ["ambientMode", "ambientColor", "ambientIntensity", "ambientSkyColor", "ambientEquatorColor", "ambientGroundColor", "fog", "fogColor", "fogMode", "fogDensity", "fogStartDistance", "fogEndDistance", "skyboxMaterial"]),
+            new ToolDescriptor("scene.bake-navmesh", "scene", "Bake the NavMesh for the active scene.", [], []),
             new ToolDescriptor("gameobject.create", "gameobject", "Create a GameObject.", ["name"], ["scenePath", "parentId", "position", "scale", "primitive"]),
             new ToolDescriptor("gameobject.get", "gameobject", "Fetch a GameObject.", [], ["id", "name"]),
             new ToolDescriptor("gameobject.delete", "gameobject", "Delete a GameObject.", [], ["id", "name"]),
@@ -1814,6 +1914,8 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ToolDescriptor("material.info", "material", "Fetch material info.", ["path"], []),
             new ToolDescriptor("asset.list", "asset", "List assets.", [], ["filter"]),
             new ToolDescriptor("asset.add-to-scene", "asset", "Instantiate an asset in the scene.", ["assetPath"], ["scenePath", "name"]),
+            new ToolDescriptor("asset.set-addressable", "asset", "Mark an asset addressable.", ["path"], ["address", "group"]),
+            new ToolDescriptor("asset.remove-addressable", "asset", "Remove an addressable entry.", ["path"], []),
             new ToolDescriptor("asset.import-texture", "asset", "Import a texture.", ["path"], []),
             new ToolDescriptor("asset.manage", "asset", "Manage assets (folder/move/delete/rename/duplicate).", ["op"], ["parent", "folderName", "from", "to", "path", "paths", "newName"]),
             new ToolDescriptor("asset.create-scriptableobject", "asset", "Create a ScriptableObject asset.", ["type", "path"], ["values"]),
@@ -1828,6 +1930,9 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ToolDescriptor("console.send", "console", "Emit a console log.", ["message"], ["level"]),
             new ToolDescriptor("console.logs", "console", "Query console logs from a cursor.", [], ["sinceCursor", "level", "contains"]),
             new ToolDescriptor("menu.execute", "menu", "Execute a menu item.", ["path"], []),
+            new ToolDescriptor("project.add-tag", "project", "Add a tag to the project.", ["tag"], []),
+            new ToolDescriptor("project.add-layer", "project", "Add a user layer.", ["layer"], ["index"]),
+            new ToolDescriptor("project.list-tags-layers", "project", "List tags and user layers.", [], []),
             new ToolDescriptor("ui.canvas.create", "ui", "Create a Canvas.", ["name"], []),
             new ToolDescriptor("ui.button.create", "ui", "Create a Button.", ["canvasName", "name"], ["text", "anchoredPosition", "size"]),
             new ToolDescriptor("ui.toggle.create", "ui", "Create a Toggle.", ["canvasName", "name"], ["text", "anchoredPosition", "size"]),

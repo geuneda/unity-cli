@@ -935,7 +935,8 @@ public sealed class CliApplication
         _console.WriteLine("  workflow run <file>");
         _console.WriteLine("  batch run <file>");
         _console.WriteLine("  mock serve [host=127.0.0.1] [port=52737]");
-        _console.WriteLine("  scene|gameobject|component|material|asset|package|tests|console|menu|editor <action> [key=value...]");
+        _console.WriteLine("  scene|gameobject|component|material|asset|package|project|tests|console|menu|editor <action> [key=value...]");
+        _console.WriteLine("  values=<json> supports arrays, nested structs, and scene refs, e.g. values={\"_target\":{\"__ref\":\"name:Player\"}}");
         _console.WriteLine("global options:");
         _console.WriteLine("  --base-url=<url>  --project=<name>  --instance=<project:port>  --json  --quiet  --strict  --field=<jsonpath>  --timeout-ms=<milliseconds>");
     }

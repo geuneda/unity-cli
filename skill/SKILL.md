@@ -47,9 +47,13 @@ dotnet src/UnityCli/bin/Debug/net10.0/UnityCli.dll <command>
 
 ### 직접 매핑 명령 (group action key=value...)
 
-씬, 게임오브젝트, UI, 입력, 머티리얼, 에셋, 패키지, 테스트, 콘솔, 에디터 그룹을 `<group> <action> [key=value...]` 형태로 호출한다.
+씬, 게임오브젝트, 프로젝트, UI, 입력, 머티리얼, 에셋, 패키지, 테스트, 콘솔, 에디터 그룹을 `<group> <action> [key=value...]` 형태로 호출한다.
 
 벡터 인자는 `position=1,2,3` 형태(콤마 구분, 괄호 불필요)로 전달한다.
+
+`values` 인자는 JSON으로 배열/중첩 struct/씬 오브젝트 참조까지 표현할 수 있다(예: `values={"_target":{"__ref":"name:Player"}}`). 자세한 규칙은 `references/commands.md`의 "values JSON 확장"을 참조한다.
+
+씬/월드 오소링용 도구로 `project add-tag|add-layer|list-tags-layers`, `asset set-addressable|remove-addressable`, `scene set-lighting|bake-navmesh`가 있다. 라이트맵/오클루전 베이크와 Terrain은 범위 밖이며 프로젝트 `MenuItem` + `menu execute`로 우회한다.
 
 전체 명령 목록과 인자 상세는 `references/commands.md`를 참조한다.
 

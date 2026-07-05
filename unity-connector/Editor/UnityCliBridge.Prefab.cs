@@ -63,7 +63,7 @@ namespace UnityCliBridge
             }
 
             ApplyTransform(instance.transform, arguments);
-            Emit("hierarchy.changed", $"Prefab instantiated: {instance.name}", new JObject { ["id"] = instance.GetInstanceID(), ["name"] = instance.name, ["path"] = path });
+            Emit("hierarchy.changed", $"Prefab instantiated: {instance.name}", new JObject { ["id"] = instance.GetStableId(), ["name"] = instance.name, ["path"] = path });
             return Success(PrefabResult(instance, path), "Prefab instantiated.");
         }
 
@@ -100,7 +100,7 @@ namespace UnityCliBridge
             var completely = arguments["completely"]?.Value<bool?>() ?? false;
             var mode = completely ? PrefabUnpackMode.Completely : PrefabUnpackMode.OutermostRoot;
             PrefabUtility.UnpackPrefabInstance(root, mode, InteractionMode.AutomatedAction);
-            Emit("hierarchy.changed", $"Prefab unpacked: {root.name}", new JObject { ["id"] = root.GetInstanceID(), ["completely"] = completely });
+            Emit("hierarchy.changed", $"Prefab unpacked: {root.name}", new JObject { ["id"] = root.GetStableId(), ["completely"] = completely });
             return Success(GameObjectObject(root), "Prefab unpacked.");
         }
 

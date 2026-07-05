@@ -390,6 +390,8 @@ public static partial class UnityCliBridgeServer
                     ["activeScenePath"] = SceneManager.GetActiveScene().path,
                 }, "Loaded scenes listed.");
             }),
+            "scene.set-lighting" => await OnMainThreadAsync(() => SetSceneLighting(arguments)),
+            "scene.bake-navmesh" => await OnMainThreadAsync(() => BakeNavMesh(arguments)),
             "gameobject.create" => await OnMainThreadAsync(() =>
             {
                 var name = arguments.Value<string>("name") ?? "GameObject";
@@ -406,7 +408,7 @@ public static partial class UnityCliBridgeServer
                 }
 
                 ApplyTransform(gameObject.transform, arguments);
-                Emit("hierarchy.changed", $"GameObject created: {name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = name });
+                Emit("hierarchy.changed", $"GameObject created: {name}", new JObject { ["id"] = gameObject.GetStableId(), ["name"] = name });
                 return Success(GameObjectObject(gameObject), "GameObject created.");
             }),
             "gameobject.get" => await OnMainThreadAsync(() =>
@@ -426,13 +428,13 @@ public static partial class UnityCliBridgeServer
                 var source = FindGameObject(arguments);
                 var duplicate = UnityEngine.Object.Instantiate(source);
                 duplicate.name = arguments.Value<string>("name") ?? source.name + " Copy";
-                Emit("hierarchy.changed", $"GameObject duplicated: {duplicate.name}", new JObject { ["id"] = duplicate.GetInstanceID() });
+                Emit("hierarchy.changed", $"GameObject duplicated: {duplicate.name}", new JObject { ["id"] = duplicate.GetStableId() });
                 return Success(GameObjectObject(duplicate), "GameObject duplicated.");
             }),
             "gameobject.reparent" => await OnMainThreadAsync(() =>
             {
                 var gameObject = FindGameObject(arguments);
-                var parent = arguments["parentId"] != null ? EditorUtility.InstanceIDToObject(arguments.Value<int>("parentId")) as GameObject : null;
+                var parent = arguments["parentId"] != null ? EntityIdCompat.IdToObject(arguments.Value<int>("parentId")) as GameObject : null;
                 gameObject.transform.SetParent(parent != null ? parent.transform : null);
                 Emit("hierarchy.changed", $"GameObject reparented: {gameObject.name}", null);
                 return Success(GameObjectObject(gameObject), "GameObject reparented.");
@@ -469,7 +471,7 @@ public static partial class UnityCliBridgeServer
             {
                 var gameObject = FindGameObject(arguments);
                 Selection.activeGameObject = gameObject;
-                Emit("selection.changed", $"Selected: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID() });
+                Emit("selection.changed", $"Selected: {gameObject.name}", new JObject { ["id"] = gameObject.GetStableId() });
                 return Success(GameObjectObject(gameObject), "GameObject selected.");
             }),
             "gameobject.find" => await OnMainThreadAsync(() => FindGameObjects(arguments)),
@@ -477,7 +479,7 @@ public static partial class UnityCliBridgeServer
             "sprite.create" => await OnMainThreadAsync(() =>
             {
                 var gameObject = CreateSprite(arguments);
-                Emit("hierarchy.changed", $"Sprite created: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name });
+                Emit("hierarchy.changed", $"Sprite created: {gameObject.name}", new JObject { ["id"] = gameObject.GetStableId(), ["name"] = gameObject.name });
                 return Success(GameObjectObject(gameObject), "Sprite created.");
             }),
             "sprite.set" => await OnMainThreadAsync(() => SetSpriteRenderer(arguments)),
@@ -649,6 +651,8 @@ public static partial class UnityCliBridgeServer
                 }, changed ? "Texture import settings updated and reimported." : "Texture already has correct settings.");
             }),
             "asset.manage" => await OnMainThreadAsync(() => ManageAsset(arguments)),
+            "asset.set-addressable" => await OnMainThreadAsync(() => SetAddressable(arguments)),
+            "asset.remove-addressable" => await OnMainThreadAsync(() => RemoveAddressable(arguments)),
             "asset.create-scriptableobject" => await OnMainThreadAsync(() => CreateScriptableObjectAsset(arguments)),
             "scriptableobject.get" => await OnMainThreadAsync(() => GetScriptableObjectProperties(arguments)),
             "scriptableobject.list" => await OnMainThreadAsync(() => ListScriptableObjects(arguments)),
@@ -693,55 +697,55 @@ public static partial class UnityCliBridgeServer
             "ui.canvas.create" => await OnMainThreadAsync(() =>
             {
                 var canvas = EnsureCanvas(arguments.Value<string>("name") ?? "Canvas", arguments);
-                Emit("hierarchy.changed", $"Canvas ready: {canvas.name}", new JObject { ["id"] = canvas.GetInstanceID(), ["name"] = canvas.name });
+                Emit("hierarchy.changed", $"Canvas ready: {canvas.name}", new JObject { ["id"] = canvas.GetStableId(), ["name"] = canvas.name });
                 return Success(GameObjectObject(canvas), "Canvas created.");
             }),
             "ui.button.create" => await OnMainThreadAsync(() =>
             {
                 var button = CreateButton(arguments);
-                Emit("hierarchy.changed", $"Button created: {button.name}", new JObject { ["id"] = button.GetInstanceID(), ["name"] = button.name });
+                Emit("hierarchy.changed", $"Button created: {button.name}", new JObject { ["id"] = button.GetStableId(), ["name"] = button.name });
                 return Success(GameObjectObject(button), "Button created.");
             }),
             "ui.toggle.create" => await OnMainThreadAsync(() =>
             {
                 var toggle = CreateToggle(arguments);
-                Emit("hierarchy.changed", $"Toggle created: {toggle.name}", new JObject { ["id"] = toggle.GetInstanceID(), ["name"] = toggle.name });
+                Emit("hierarchy.changed", $"Toggle created: {toggle.name}", new JObject { ["id"] = toggle.GetStableId(), ["name"] = toggle.name });
                 return Success(UiObject(toggle), "Toggle created.");
             }),
             "ui.slider.create" => await OnMainThreadAsync(() =>
             {
                 var slider = CreateSlider(arguments);
-                Emit("hierarchy.changed", $"Slider created: {slider.name}", new JObject { ["id"] = slider.GetInstanceID(), ["name"] = slider.name });
+                Emit("hierarchy.changed", $"Slider created: {slider.name}", new JObject { ["id"] = slider.GetStableId(), ["name"] = slider.name });
                 return Success(UiObject(slider), "Slider created.");
             }),
             "ui.scrollrect.create" => await OnMainThreadAsync(() =>
             {
                 var scrollRect = CreateScrollRect(arguments);
-                Emit("hierarchy.changed", $"ScrollRect created: {scrollRect.name}", new JObject { ["id"] = scrollRect.GetInstanceID(), ["name"] = scrollRect.name });
+                Emit("hierarchy.changed", $"ScrollRect created: {scrollRect.name}", new JObject { ["id"] = scrollRect.GetStableId(), ["name"] = scrollRect.name });
                 return Success(UiObject(scrollRect), "ScrollRect created.");
             }),
             "ui.inputfield.create" => await OnMainThreadAsync(() =>
             {
                 var inputField = CreateInputField(arguments);
-                Emit("hierarchy.changed", $"InputField created: {inputField.name}", new JObject { ["id"] = inputField.GetInstanceID(), ["name"] = inputField.name });
+                Emit("hierarchy.changed", $"InputField created: {inputField.name}", new JObject { ["id"] = inputField.GetStableId(), ["name"] = inputField.name });
                 return Success(UiObject(inputField), "InputField created.");
             }),
             "ui.text.create" => await OnMainThreadAsync(() =>
             {
                 var text = CreateText(arguments);
-                Emit("hierarchy.changed", $"Text created: {text.name}", new JObject { ["id"] = text.GetInstanceID(), ["name"] = text.name });
+                Emit("hierarchy.changed", $"Text created: {text.name}", new JObject { ["id"] = text.GetStableId(), ["name"] = text.name });
                 return Success(GameObjectObject(text), "Text created.");
             }),
             "ui.image.create" => await OnMainThreadAsync(() =>
             {
                 var image = CreateImage(arguments);
-                Emit("hierarchy.changed", $"Image created: {image.name}", new JObject { ["id"] = image.GetInstanceID(), ["name"] = image.name });
+                Emit("hierarchy.changed", $"Image created: {image.name}", new JObject { ["id"] = image.GetStableId(), ["name"] = image.name });
                 return Success(GameObjectObject(image), "Image created.");
             }),
             "ui.panel.create" => await OnMainThreadAsync(() =>
             {
                 var panel = CreatePanel(arguments);
-                Emit("hierarchy.changed", $"Panel created: {panel.name}", new JObject { ["id"] = panel.GetInstanceID(), ["name"] = panel.name });
+                Emit("hierarchy.changed", $"Panel created: {panel.name}", new JObject { ["id"] = panel.GetStableId(), ["name"] = panel.name });
                 return Success(GameObjectObject(panel), "Panel created.");
             }),
             "ui.layout.add" => await OnMainThreadAsync(() =>
@@ -764,14 +768,14 @@ public static partial class UnityCliBridgeServer
             {
                 var toggle = FindGameObject(arguments).GetComponent<Toggle>() ?? throw new InvalidOperationException("Toggle component was not found.");
                 toggle.isOn = arguments["isOn"]?.Value<bool?>() ?? toggle.isOn;
-                Emit("component.changed", $"Toggle changed: {toggle.gameObject.name}", new JObject { ["id"] = toggle.gameObject.GetInstanceID(), ["isOn"] = toggle.isOn });
+                Emit("component.changed", $"Toggle changed: {toggle.gameObject.name}", new JObject { ["id"] = toggle.gameObject.GetStableId(), ["isOn"] = toggle.isOn });
                 return Success(UiObject(toggle.gameObject), "Toggle updated.");
             }),
             "ui.slider.set" => await OnMainThreadAsync(() =>
             {
                 var slider = FindGameObject(arguments).GetComponent<Slider>() ?? throw new InvalidOperationException("Slider component was not found.");
                 slider.value = arguments["value"]?.Value<float?>() ?? slider.value;
-                Emit("component.changed", $"Slider changed: {slider.gameObject.name}", new JObject { ["id"] = slider.gameObject.GetInstanceID(), ["value"] = slider.value });
+                Emit("component.changed", $"Slider changed: {slider.gameObject.name}", new JObject { ["id"] = slider.gameObject.GetStableId(), ["value"] = slider.value });
                 return Success(UiObject(slider.gameObject), "Slider updated.");
             }),
             "ui.scrollrect.set" => await OnMainThreadAsync(() =>
@@ -791,7 +795,7 @@ public static partial class UnityCliBridgeServer
                 scrollRect.StopMovement();
                 Emit("component.changed", $"ScrollRect changed: {scrollRect.gameObject.name}", new JObject
                 {
-                    ["id"] = scrollRect.gameObject.GetInstanceID(),
+                    ["id"] = scrollRect.gameObject.GetStableId(),
                     ["normalizedPosition"] = new JArray(scrollRect.normalizedPosition.x, scrollRect.normalizedPosition.y),
                 });
                 return Success(UiObject(scrollRect.gameObject), "ScrollRect updated.");
@@ -801,14 +805,14 @@ public static partial class UnityCliBridgeServer
                 var gameObject = FindGameObject(arguments);
                 var text = arguments.Value<string>("text") ?? string.Empty;
                 SetInputFieldText(gameObject, text);
-                Emit("component.changed", $"InputField changed: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["text"] = text });
+                Emit("component.changed", $"InputField changed: {gameObject.name}", new JObject { ["id"] = gameObject.GetStableId(), ["text"] = text });
                 return Success(UiObject(gameObject), "InputField updated.");
             }),
             "ui.focus" => await OnMainThreadAsync(() =>
             {
                 var gameObject = FindGameObject(arguments);
                 FocusUiTarget(gameObject);
-                Emit("ui.focused", $"UI focused: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name });
+                Emit("ui.focused", $"UI focused: {gameObject.name}", new JObject { ["id"] = gameObject.GetStableId(), ["name"] = gameObject.name });
                 return Success(UiObject(gameObject), "UI focus updated.");
             }),
             "ui.blur" => await OnMainThreadAsync(() =>
@@ -816,13 +820,13 @@ public static partial class UnityCliBridgeServer
                 var previous = ClearUiFocus();
                 Emit("ui.blurred", previous == null ? "UI focus cleared." : $"UI blurred: {previous.name}", new JObject
                 {
-                    ["id"] = previous != null ? previous.GetInstanceID() : 0,
+                    ["id"] = previous != null ? previous.GetStableId() : 0,
                     ["name"] = previous != null ? previous.name : string.Empty,
                 });
                 return Success(new JObject
                 {
                     ["cleared"] = true,
-                    ["previousId"] = previous != null ? previous.GetInstanceID() : 0,
+                    ["previousId"] = previous != null ? previous.GetStableId() : 0,
                     ["previousName"] = previous != null ? previous.name : string.Empty,
                     ["editorState"] = JObject.FromObject(EditorState()),
                 }, "UI focus cleared.");
@@ -895,6 +899,9 @@ public static partial class UnityCliBridgeServer
                 return Success(EditorState(), "Editor refreshed.");
             }),
             "editor.compile" => await OnMainThreadAsync(() => RequestScriptCompilation()),
+            "project.add-tag" => await OnMainThreadAsync(() => AddProjectTag(arguments)),
+            "project.add-layer" => await OnMainThreadAsync(() => AddProjectLayer(arguments)),
+            "project.list-tags-layers" => await OnMainThreadAsync(() => ListTagsAndLayers(arguments)),
             "prefab.create" => await OnMainThreadAsync(() => CreatePrefab(arguments)),
             "prefab.instantiate" => await OnMainThreadAsync(() => InstantiatePrefab(arguments)),
             "prefab.apply" => await OnMainThreadAsync(() => ApplyPrefab(arguments)),
@@ -944,8 +951,8 @@ public static partial class UnityCliBridgeServer
             isPlaying = EditorApplication.isPlaying,
             isPlayingOrWillChangePlaymode = EditorApplication.isPlayingOrWillChangePlaymode,
             isPaused = EditorApplication.isPaused,
-            selectedObjectId = Selection.activeGameObject != null ? Selection.activeGameObject.GetInstanceID() : 0,
-            eventSystemSelectedObjectId = currentSelected != null ? currentSelected.GetInstanceID() : 0,
+            selectedObjectId = Selection.activeGameObject != null ? Selection.activeGameObject.GetStableId() : 0,
+            eventSystemSelectedObjectId = currentSelected != null ? currentSelected.GetStableId() : 0,
             eventSystemSelectedObjectName = currentSelected != null ? currentSelected.name : string.Empty,
             activeScenePath = SceneManager.GetActiveScene().path,
         };
@@ -1075,13 +1082,13 @@ public static partial class UnityCliBridgeServer
     {
         var result = new JObject
         {
-            ["id"] = gameObject.GetInstanceID(),
+            ["id"] = gameObject.GetStableId(),
             ["name"] = gameObject.name,
             ["activeSelf"] = gameObject.activeSelf,
             ["position"] = new JArray(gameObject.transform.position.x, gameObject.transform.position.y, gameObject.transform.position.z),
             ["rotation"] = new JArray(gameObject.transform.eulerAngles.x, gameObject.transform.eulerAngles.y, gameObject.transform.eulerAngles.z),
             ["scale"] = new JArray(gameObject.transform.localScale.x, gameObject.transform.localScale.y, gameObject.transform.localScale.z),
-            ["parentId"] = gameObject.transform.parent != null ? gameObject.transform.parent.gameObject.GetInstanceID() : 0,
+            ["parentId"] = gameObject.transform.parent != null ? gameObject.transform.parent.gameObject.GetStableId() : 0,
         };
 
         result["activeInHierarchy"] = gameObject.activeInHierarchy;
@@ -1752,7 +1759,7 @@ public static partial class UnityCliBridgeServer
         var id = arguments["id"]?.Value<int?>();
         if (id.HasValue)
         {
-            return EditorUtility.InstanceIDToObject(id.Value) as GameObject ?? throw NotFound($"GameObject with instance ID {id.Value} was not found.");
+            return EntityIdCompat.IdToObject(id.Value) as GameObject ?? throw NotFound($"GameObject with instance ID {id.Value} was not found.");
         }
 
         var name = arguments.Value<string>("name") ?? throw MissingArg("Either id or name is required.");
@@ -2086,7 +2093,7 @@ public static partial class UnityCliBridgeServer
 
         ApplySpriteRenderer(renderer, arguments, null, null);
         EditorUtility.SetDirty(renderer);
-        Emit("component.changed", $"SpriteRenderer set: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID() });
+        Emit("component.changed", $"SpriteRenderer set: {gameObject.name}", new JObject { ["id"] = gameObject.GetStableId() });
         return Success(GameObjectObject(gameObject), "SpriteRenderer updated.");
     }
 
@@ -2446,13 +2453,13 @@ public static partial class UnityCliBridgeServer
             {
                 var layout = gameObject.GetComponent<HorizontalLayoutGroup>() ?? gameObject.AddComponent<HorizontalLayoutGroup>();
                 ApplyLayoutGroupSettings(layout, arguments);
-                return new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["layoutType"] = layoutType };
+                return new JObject { ["id"] = gameObject.GetStableId(), ["name"] = gameObject.name, ["layoutType"] = layoutType };
             }
             case "Vertical":
             {
                 var layout = gameObject.GetComponent<VerticalLayoutGroup>() ?? gameObject.AddComponent<VerticalLayoutGroup>();
                 ApplyLayoutGroupSettings(layout, arguments);
-                return new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["layoutType"] = layoutType };
+                return new JObject { ["id"] = gameObject.GetStableId(), ["name"] = gameObject.name, ["layoutType"] = layoutType };
             }
             case "Grid":
             {
@@ -2461,14 +2468,14 @@ public static partial class UnityCliBridgeServer
                 layout.spacing = ParseVector2(arguments["gridSpacing"] as JArray, Vector2.zero);
                 layout.childAlignment = ParseTextAnchor(arguments.Value<string>("childAlignment"), TextAnchor.UpperLeft);
                 layout.padding = ParseRectOffset(arguments);
-                return new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["layoutType"] = layoutType };
+                return new JObject { ["id"] = gameObject.GetStableId(), ["name"] = gameObject.name, ["layoutType"] = layoutType };
             }
             case "ContentSizeFitter":
             {
                 var fitter = gameObject.GetComponent<ContentSizeFitter>() ?? gameObject.AddComponent<ContentSizeFitter>();
                 fitter.horizontalFit = ParseFitMode(arguments.Value<string>("horizontalFit"), ContentSizeFitter.FitMode.Unconstrained);
                 fitter.verticalFit = ParseFitMode(arguments.Value<string>("verticalFit"), ContentSizeFitter.FitMode.Unconstrained);
-                return new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["layoutType"] = layoutType };
+                return new JObject { ["id"] = gameObject.GetStableId(), ["name"] = gameObject.name, ["layoutType"] = layoutType };
             }
             default:
                 throw new InvalidOperationException($"Unknown layoutType: {layoutType}");
@@ -2523,7 +2530,7 @@ public static partial class UnityCliBridgeServer
 
         return new JObject
         {
-            ["id"] = gameObject.GetInstanceID(),
+            ["id"] = gameObject.GetStableId(),
             ["name"] = gameObject.name,
             ["anchorMin"] = new JArray(rt.anchorMin.x, rt.anchorMin.y),
             ["anchorMax"] = new JArray(rt.anchorMax.x, rt.anchorMax.y),
@@ -2784,7 +2791,7 @@ public static partial class UnityCliBridgeServer
         var parentId = arguments["parentId"]?.Value<int?>();
         if (parentId.HasValue)
         {
-            var parent = EditorUtility.InstanceIDToObject(parentId.Value) as GameObject;
+            var parent = EntityIdCompat.IdToObject(parentId.Value) as GameObject;
             if (parent != null && parent.GetComponent<RectTransform>() != null)
                 return parent.transform;
         }
@@ -2887,10 +2894,10 @@ public static partial class UnityCliBridgeServer
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerUpHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerClickHandler);
 
-        Emit(eventType, $"Pointer tap: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["pointerId"] = pointerId });
+        Emit(eventType, $"Pointer tap: {gameObject.name}", new JObject { ["id"] = gameObject.GetStableId(), ["name"] = gameObject.name, ["pointerId"] = pointerId });
         return new JObject
         {
-            ["id"] = gameObject.GetInstanceID(),
+            ["id"] = gameObject.GetStableId(),
             ["name"] = gameObject.name,
             ["position"] = new JArray(position.x, position.y),
             ["pointerId"] = pointerId,
@@ -2913,10 +2920,10 @@ public static partial class UnityCliBridgeServer
         DispatchSingleTap(gameObject, target, position, 1, pointerId);
         DispatchSingleTap(gameObject, target, position, 2, pointerId);
 
-        Emit(eventType, $"Pointer double tap: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["clickCount"] = 2, ["pointerId"] = pointerId });
+        Emit(eventType, $"Pointer double tap: {gameObject.name}", new JObject { ["id"] = gameObject.GetStableId(), ["name"] = gameObject.name, ["clickCount"] = 2, ["pointerId"] = pointerId });
         return new JObject
         {
-            ["id"] = gameObject.GetInstanceID(),
+            ["id"] = gameObject.GetStableId(),
             ["name"] = gameObject.name,
             ["position"] = new JArray(position.x, position.y),
             ["clickCount"] = 2,
@@ -2951,10 +2958,10 @@ public static partial class UnityCliBridgeServer
         eventData.clickTime = (float)EditorApplication.timeSinceStartup;
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerUpHandler);
 
-        Emit(eventType, $"Pointer long press: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["durationMs"] = durationMs, ["pointerId"] = pointerId });
+        Emit(eventType, $"Pointer long press: {gameObject.name}", new JObject { ["id"] = gameObject.GetStableId(), ["name"] = gameObject.name, ["durationMs"] = durationMs, ["pointerId"] = pointerId });
         return new JObject
         {
-            ["id"] = gameObject.GetInstanceID(),
+            ["id"] = gameObject.GetStableId(),
             ["name"] = gameObject.name,
             ["position"] = new JArray(position.x, position.y),
             ["durationMs"] = durationMs,
@@ -2991,10 +2998,10 @@ public static partial class UnityCliBridgeServer
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.endDragHandler);
         ExecuteEvents.ExecuteHierarchy(gameObject, eventData, ExecuteEvents.pointerUpHandler);
 
-        Emit(eventType, $"Pointer drag: {gameObject.name}", new JObject { ["id"] = gameObject.GetInstanceID(), ["name"] = gameObject.name, ["pointerId"] = pointerId });
+        Emit(eventType, $"Pointer drag: {gameObject.name}", new JObject { ["id"] = gameObject.GetStableId(), ["name"] = gameObject.name, ["pointerId"] = pointerId });
         return new JObject
         {
-            ["id"] = gameObject.GetInstanceID(),
+            ["id"] = gameObject.GetStableId(),
             ["name"] = gameObject.name,
             ["from"] = new JArray(from.x, from.y),
             ["to"] = new JArray(to.x, to.y),

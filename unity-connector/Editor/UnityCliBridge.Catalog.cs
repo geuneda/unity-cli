@@ -82,6 +82,21 @@ namespace UnityCliBridge
             Tool("scene.open-additive", "Open a scene additively (multi-scene).", Req("path", "string", "Scene asset path to open additively.")),
             Tool("scene.set-active", "Set the active scene among the loaded scenes.", Req("path", "string", "Loaded scene path to make active.")),
             Tool("scene.list-loaded", "List all currently loaded scenes."),
+            Tool("scene.set-lighting", "Apply RenderSettings lighting/fog to the active scene (only provided fields).",
+                Arg("ambientMode", "string", "Skybox, Trilight, Flat or Color."),
+                Arg("ambientColor", "color", "Flat/Color ambient light hex."),
+                Arg("ambientIntensity", "float", "Ambient intensity multiplier."),
+                Arg("ambientSkyColor", "color", "Trilight sky color hex."),
+                Arg("ambientEquatorColor", "color", "Trilight equator color hex."),
+                Arg("ambientGroundColor", "color", "Trilight ground color hex."),
+                Arg("fog", "bool", "Enable fog."),
+                Arg("fogColor", "color", "Fog color hex."),
+                Arg("fogMode", "string", "Linear, Exponential or ExponentialSquared."),
+                Arg("fogDensity", "float", "Exponential fog density."),
+                Arg("fogStartDistance", "float", "Linear fog start distance."),
+                Arg("fogEndDistance", "float", "Linear fog end distance."),
+                Arg("skyboxMaterial", "string", "Skybox material asset path.")),
+            Tool("scene.bake-navmesh", "Bake the legacy NavMesh for the active scene (synchronous)."),
 
             // gameobject
             Tool("gameobject.create", "Create a GameObject (optionally a primitive).",
@@ -177,6 +192,12 @@ namespace UnityCliBridge
                 Arg("path", "string", "delete/rename/duplicate: asset path."),
                 Arg("paths", "json", "delete: array of asset paths (alternative to path)."),
                 Arg("newName", "string", "rename: new asset name (no extension change).")),
+            Tool("asset.set-addressable", "Mark an asset Addressable (create/move entry, set address/group).",
+                Req("path", "string", "Asset path to make addressable."),
+                Arg("address", "string", "Addressable address key. Default the asset path."),
+                Arg("group", "string", "Target group name (found or created). Default the default group.")),
+            Tool("asset.remove-addressable", "Remove an asset's Addressable entry if present.",
+                Req("path", "string", "Asset path to un-addressable.")),
 
             // scriptableobject
             Tool("asset.create-scriptableobject", "Create a ScriptableObject asset and inject serialized values.",
@@ -269,6 +290,13 @@ namespace UnityCliBridge
             Tool("editor.refresh", "Refresh the AssetDatabase."),
             Tool("editor.compile", "Request script compilation and wait."),
             Tool("editor.gameview.resize", "Resize the Game View.", Arg("width", "int", "Width."), Arg("height", "int", "Height.")),
+
+            // project settings
+            Tool("project.add-tag", "Add a tag to the project (idempotent).", Req("tag", "string", "Tag name to add.")),
+            Tool("project.add-layer", "Set a user layer name (8..31) in the first free or given slot.",
+                Req("layer", "string", "Layer name to add."),
+                Arg("index", "int", "Specific user layer slot 8..31. Default first free slot.")),
+            Tool("project.list-tags-layers", "List defined tags and user layers (index->name)."),
 
             // prefab
             Tool("prefab.create", "Save a scene GameObject as a prefab asset (variant if the source is already a prefab instance).", WithTarget(
