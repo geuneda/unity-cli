@@ -197,6 +197,8 @@ unity-cli package add name=com.unity.inputsystem
 |------|-----------|-----------|------|
 | `project add-tag` | `tag` | | TagManager에 태그 추가 (이미 있으면 유지). 멱등 |
 | `project add-layer` | `layer` | `index` | user 레이어(8..31) 빈 슬롯 또는 지정 `index`에 이름 설정 |
+| `project remove-tag` | `tag` | | 태그 제거 (없으면 무시). 응답 `{tag, removed}`. 멱등 |
+| `project remove-layer` | `layer` | | 이름이 일치하는 user 레이어(8..31) 슬롯을 비움. 응답 `{layer, index, removed}`. 멱등 |
 | `project list-tags-layers` | | | 현재 태그 목록과 user 레이어(index->name) 조회 (읽기 전용) |
 
 `project add-tag` 응답은 `{tag, added}`이며 `added`가 새로 추가 여부를 나타낸다(이미 있으면 `added:false`).

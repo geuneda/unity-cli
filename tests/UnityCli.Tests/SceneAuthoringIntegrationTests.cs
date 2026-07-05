@@ -78,6 +78,32 @@ public sealed class SceneAuthoringIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ProjectRemoveTag_ReturnsTagAndRemoved()
+    {
+        var console = new RecordingConsole();
+        var app = new CliApplication(console);
+
+        var exit = await RunAsync(app, "project", "remove-tag", "tag=Boss");
+
+        Assert.Equal(0, exit);
+        Assert.Contains("Boss", console.StdoutText);
+        Assert.Contains("removed", console.StdoutText);
+    }
+
+    [Fact]
+    public async Task ProjectRemoveLayer_ReturnsLayerAndRemoved()
+    {
+        var console = new RecordingConsole();
+        var app = new CliApplication(console);
+
+        var exit = await RunAsync(app, "project", "remove-layer", "layer=Water");
+
+        Assert.Equal(0, exit);
+        Assert.Contains("Water", console.StdoutText);
+        Assert.Contains("removed", console.StdoutText);
+    }
+
+    [Fact]
     public async Task ProjectListTagsLayers_ReturnsTagsAndLayers()
     {
         var console = new RecordingConsole();

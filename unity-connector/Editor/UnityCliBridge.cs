@@ -901,6 +901,8 @@ public static partial class UnityCliBridgeServer
             "editor.compile" => await OnMainThreadAsync(() => RequestScriptCompilation()),
             "project.add-tag" => await OnMainThreadAsync(() => AddProjectTag(arguments)),
             "project.add-layer" => await OnMainThreadAsync(() => AddProjectLayer(arguments)),
+            "project.remove-tag" => await OnMainThreadAsync(() => RemoveProjectTag(arguments)),
+            "project.remove-layer" => await OnMainThreadAsync(() => RemoveProjectLayer(arguments)),
             "project.list-tags-layers" => await OnMainThreadAsync(() => ListTagsAndLayers(arguments)),
             "prefab.create" => await OnMainThreadAsync(() => CreatePrefab(arguments)),
             "prefab.instantiate" => await OnMainThreadAsync(() => InstantiatePrefab(arguments)),

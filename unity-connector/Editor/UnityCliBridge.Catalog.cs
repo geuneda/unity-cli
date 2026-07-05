@@ -296,6 +296,8 @@ namespace UnityCliBridge
             Tool("project.add-layer", "Set a user layer name (8..31) in the first free or given slot.",
                 Req("layer", "string", "Layer name to add."),
                 Arg("index", "int", "Specific user layer slot 8..31. Default first free slot.")),
+            Tool("project.remove-tag", "Remove a tag from the project if present (idempotent).", Req("tag", "string", "Tag name to remove.")),
+            Tool("project.remove-layer", "Clear a user layer (8..31) by name if present (idempotent).", Req("layer", "string", "Layer name to remove.")),
             Tool("project.list-tags-layers", "List defined tags and user layers (index->name)."),
 
             // prefab

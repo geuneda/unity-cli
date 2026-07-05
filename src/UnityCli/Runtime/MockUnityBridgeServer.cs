@@ -253,6 +253,8 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             "menu.execute" => Success("Menu command executed.", ExecuteMenu(args)),
             "project.add-tag" => Success("Tag added.", AddProjectTag(args)),
             "project.add-layer" => Success("Layer added.", AddProjectLayer(args)),
+            "project.remove-tag" => Success("Tag removed.", RemoveProjectTag(args)),
+            "project.remove-layer" => Success("Layer removed.", RemoveProjectLayer(args)),
             "project.list-tags-layers" => Success("Tags and layers listed.", ListTagsAndLayers()),
             "sprite.create" => Success("Sprite created.", CreateSprite(args)),
             "sprite.set" => Success("SpriteRenderer updated.", SetSpriteRenderer(args)),
@@ -1665,6 +1667,26 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
         return new JsonObject { ["layer"] = layer, ["index"] = index, ["added"] = true };
     }
 
+    /// <summary>project.remove-tag 를 모사한다. 태그 제거를 성공으로 보고한다.</summary>
+    /// <param name="args">tag 인자를 담은 JSON 오브젝트.</param>
+    /// <returns>tag/removed 를 담은 JSON 오브젝트.</returns>
+    private JsonNode RemoveProjectTag(JsonObject args)
+    {
+        var tag = GetString(args, "tag", "Untagged");
+        Emit("asset.changed", $"Tag removed: {tag}", new JsonObject { ["path"] = "ProjectSettings/TagManager.asset", ["tag"] = tag });
+        return new JsonObject { ["tag"] = tag, ["removed"] = true };
+    }
+
+    /// <summary>project.remove-layer 를 모사한다. 사용자 레이어 제거를 성공으로 보고한다.</summary>
+    /// <param name="args">layer 인자를 담은 JSON 오브젝트.</param>
+    /// <returns>layer/index/removed 를 담은 JSON 오브젝트.</returns>
+    private JsonNode RemoveProjectLayer(JsonObject args)
+    {
+        var layer = GetString(args, "layer", "UserLayer");
+        Emit("asset.changed", $"Layer removed: {layer}", new JsonObject { ["path"] = "ProjectSettings/TagManager.asset", ["layer"] = layer });
+        return new JsonObject { ["layer"] = layer, ["index"] = 8, ["removed"] = true };
+    }
+
     /// <summary>project.list-tags-layers 를 모사한다. 결정론적 태그/레이어 목록을 반환한다.</summary>
     /// <returns>tags 배열과 layers 배열을 담은 JSON 오브젝트.</returns>
     private JsonNode ListTagsAndLayers()
@@ -1932,6 +1954,8 @@ public sealed class MockUnityBridgeServer : IAsyncDisposable
             new ToolDescriptor("menu.execute", "menu", "Execute a menu item.", ["path"], []),
             new ToolDescriptor("project.add-tag", "project", "Add a tag to the project.", ["tag"], []),
             new ToolDescriptor("project.add-layer", "project", "Add a user layer.", ["layer"], ["index"]),
+            new ToolDescriptor("project.remove-tag", "project", "Remove a tag from the project.", ["tag"], []),
+            new ToolDescriptor("project.remove-layer", "project", "Clear a user layer by name.", ["layer"], []),
             new ToolDescriptor("project.list-tags-layers", "project", "List tags and user layers.", [], []),
             new ToolDescriptor("ui.canvas.create", "ui", "Create a Canvas.", ["name"], []),
             new ToolDescriptor("ui.button.create", "ui", "Create a Button.", ["canvasName", "name"], ["text", "anchoredPosition", "size"]),

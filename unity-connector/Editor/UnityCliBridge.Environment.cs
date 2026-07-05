@@ -118,6 +118,70 @@ namespace UnityCliBridge
             return Success(new JObject { ["layer"] = layer, ["index"] = targetIndex, ["added"] = true }, "Layer added.");
         }
 
+        /// <summary>project.remove-tag 도구: 존재하면 태그를 제거한다(멱등).</summary>
+        /// <param name="arguments">tag(필수) 인자를 담은 JSON 오브젝트.</param>
+        /// <returns>{ tag, removed } 를 담은 성공 응답 또는 실패 응답 봉투.</returns>
+        private static object RemoveProjectTag(JObject arguments)
+        {
+            var tag = arguments.Value<string>("tag");
+            if (string.IsNullOrEmpty(tag))
+            {
+                return Failure("tag is required.", ErrorCodes.MissingArg);
+            }
+
+            var tagManager = LoadTagManagerSerializedObject();
+            if (tagManager == null)
+            {
+                return Failure("TagManager.asset not found.", ErrorCodes.NotFound);
+            }
+
+            var tagsProperty = tagManager.FindProperty("tags");
+            for (var i = 0; i < tagsProperty.arraySize; i++)
+            {
+                if (tagsProperty.GetArrayElementAtIndex(i).stringValue == tag)
+                {
+                    tagsProperty.DeleteArrayElementAtIndex(i);
+                    tagManager.ApplyModifiedPropertiesWithoutUndo();
+                    Emit(EventTypes.AssetChanged, $"Tag removed: {tag}", new JObject { ["tag"] = tag });
+                    return Success(new JObject { ["tag"] = tag, ["removed"] = true }, "Tag removed.");
+                }
+            }
+
+            return Success(new JObject { ["tag"] = tag, ["removed"] = false }, "Tag not found.");
+        }
+
+        /// <summary>project.remove-layer 도구: user 레이어(8..31) 슬롯에서 이름이 일치하는 레이어를 비운다(멱등).</summary>
+        /// <param name="arguments">layer(필수) 인자를 담은 JSON 오브젝트.</param>
+        /// <returns>{ layer, index, removed } 를 담은 성공 응답 또는 실패 응답 봉투.</returns>
+        private static object RemoveProjectLayer(JObject arguments)
+        {
+            var layer = arguments.Value<string>("layer");
+            if (string.IsNullOrEmpty(layer))
+            {
+                return Failure("layer is required.", ErrorCodes.MissingArg);
+            }
+
+            var tagManager = LoadTagManagerSerializedObject();
+            if (tagManager == null)
+            {
+                return Failure("TagManager.asset not found.", ErrorCodes.NotFound);
+            }
+
+            var layersProperty = tagManager.FindProperty("layers");
+            for (var i = 8; i < layersProperty.arraySize && i <= 31; i++)
+            {
+                if (layersProperty.GetArrayElementAtIndex(i).stringValue == layer)
+                {
+                    layersProperty.GetArrayElementAtIndex(i).stringValue = string.Empty;
+                    tagManager.ApplyModifiedPropertiesWithoutUndo();
+                    Emit(EventTypes.AssetChanged, $"Layer removed: {layer} (index {i})", new JObject { ["layer"] = layer, ["index"] = i });
+                    return Success(new JObject { ["layer"] = layer, ["index"] = i, ["removed"] = true }, "Layer removed.");
+                }
+            }
+
+            return Success(new JObject { ["layer"] = layer, ["removed"] = false }, "Layer not found.");
+        }
+
         /// <summary>project.list-tags-layers 도구: 현재 태그 목록과 user 레이어(index->name) 목록을 읽는다.</summary>
         /// <param name="arguments">사용하지 않는 인자.</param>
         /// <returns>{ tags, layers } 를 담은 성공 응답 또는 실패 응답 봉투.</returns>
